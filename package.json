@@ -1,0 +1,23 @@
+{
+  "name": "@ircam/sc-scheduling",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "author": [],
+  "exports": {
+    ".": {
+      "browser": "./src/index.js",
+      "import": "./src/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "devDependencies": {
+    "chai": "^4.3.7",
+    "mocha": "^10.1.0",
+    "waves-masters": "^2.3.1"
+  },
+  "license": "BSD-3-Clause"
+}
