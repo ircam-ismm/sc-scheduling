@@ -1,4 +1,3 @@
-
 // quantify at 1e-9 (this is very subsample accurante...)
 // minimize some floating point weirdness that may happen
 export function quantize(val) {
