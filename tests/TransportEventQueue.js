@@ -10,29 +10,7 @@ describe('TransportEventQueue.add(event)', () => {
     })
   });
 
-  // it(`should return clean events`, () => {
-  //   const queue = new TransportEventQueue();
-  //   const events = [
-  //     {
-  //       type: 'play',
-  //       time: 0,
-  //       speed: 1,
-  //     }, {
-  //       type: 'pause',
-  //       time: 2,
-  //       speed: 1,
-  //     }
-  //   ];
-
-  //   const result = events.map(e => queue.add(e));
-
-  //   assert.deepEqual(result, [
-  //     { type: 'play', time: 0, speed: 1, position: 0 },
-  //     { type: 'pause', time: 2, speed: 0, position: 2 }
-  //   ]);
-  // });
-
-  it.only('should filter similar consecutive events except seek', () => {
+  it('should filter similar consecutive events except seek and loop', () => {
     const queue = new TransportEventQueue();
 
     const events = [
@@ -43,11 +21,12 @@ describe('TransportEventQueue.add(event)', () => {
       'seek',
       'pause', 'pause',
       'play',
+      'loop', 'loop',
       'pause', 'pause',
     ];
 
     const expected = [
-      'play', 'seek', 'seek', 'pause', 'seek', 'play', 'pause'
+      'play', 'seek', 'seek', 'pause', 'seek', 'play', 'loop', 'loop', 'pause'
     ];
 
     events.forEach((type, i) => {
@@ -57,13 +36,11 @@ describe('TransportEventQueue.add(event)', () => {
       });
     });
 
-    const queuedTypes = queue._queue.filter(e => e !== null).map(e => e.type);
+    const queuedTypes = queue.scheduledEvents.filter(e => e !== null).map(e => e.type);
     assert.deepEqual(queuedTypes, expected);
   });
 
-  it('should recompute positions and speeds', () => {
-    // index 0 and 1 of the queue are last and current events which are null
-    // as we don't dequeue anything
+  it('should insert event in queue in right position', () => {
     const queue = new TransportEventQueue();
 
     queue.add({
@@ -74,98 +51,17 @@ describe('TransportEventQueue.add(event)', () => {
     queue.add({
       type: 'pause',
       time: 2,
-      speed: 0,
     });
 
-    assert.deepEqual(queue._queue[3], {
-      type: 'pause',
-      time: 2,
-      speed: 0,
-      position: 2,
-    });
-
-    // --------------------------------------------------------
-    // insert a seek to 2 at 1 sec
-    // --------------------------------------------------------
     queue.add({
       type: 'seek',
       time: 1,
-      position: 2,
     });
 
-    assert.deepEqual(queue._queue[3], { // should be seek
-      type: 'seek',
-      time: 1,
-      speed: 1, // should have position set to 1
-      position: 2,
-    });
+    const expected = ['play', 'seek', 'pause'];
+    const result = queue.scheduledEvents.map(e => e.type);
 
-    assert.deepEqual(queue._queue[4], { // should be paused
-      type: 'pause',
-      time: 2,
-      speed: 0,
-      position: 3,
-    });
-
-    // --------------------------------------------------------
-    // insert a seek to 42 at 3 sec
-    // --------------------------------------------------------
-    queue.add({
-      type: 'seek',
-      time: 3,
-      position: 42,
-    });
-
-    assert.deepEqual(queue._queue[3], { // should be seek
-      type: 'seek',
-      time: 1,
-      speed: 1, // should have position set to 1
-      position: 2,
-    });
-
-    assert.deepEqual(queue._queue[4], { // should be pause
-      type: 'pause',
-      time: 2,
-      speed: 0,
-      position: 3,
-    });
-
-    assert.deepEqual(queue._queue[5], { // should be stop
-      type: 'seek',
-      time: 3,
-      speed: 0,
-      position: 42,
-    });
-  });
-
-  it('should return event with proper estimation or null if discarded', () => {
-    const queue = new TransportEventQueue();
-
-    queue.add({
-      type: 'play',
-      time: 0,
-    });
-
-    const res1 = queue.add({
-      type: 'pause',
-      time: 2,
-    });
-
-    // console.log(res1);
-    assert.deepEqual(res1, { // should be stop
-      type: 'pause',
-      time: 2,
-      position: 2,
-      speed: 0,
-    });
-
-    const res2 = queue.add({
-      type: 'pause',
-      time: 4,
-    });
-
-    // console.log(res2);
-    assert.equal(res2, null);
+    assert.deepEqual(result, expected);
   });
 
   it('should clear events w/ time greater or equal to cancel time', () => {
@@ -198,9 +94,123 @@ describe('TransportEventQueue.add(event)', () => {
 
     {
       // should only remain last and current events
-      const types = queue._queue.map(e => e.type);
+      const types = queue.scheduledEvents.map(e => e.type);
       const expected = ['play', 'pause'];
       assert.deepEqual(types, expected);
     }
+  });
+
+  it('should return event with proper estimation or null if discarded', () => {
+    const queue = new TransportEventQueue();
+
+    const res1 = queue.add({
+      type: 'pause',
+      time: 2,
+    });
+
+    assert.deepEqual(res1, { // should be stop
+      type: 'pause',
+      time: 2,
+    });
+
+    const res2 = queue.add({
+      type: 'pause',
+      time: 4,
+    });
+
+    // console.log(res2);
+    assert.equal(res2, null);
+  });
+});
+
+describe('TransportEventQueue.dequeue()', () => {
+  it('should properly compute state when a event is dequeued', () => {
+    // index 0 and 1 of the queue are last and current events which are null
+    // as we don't dequeue anything
+    const queue = new TransportEventQueue();
+
+    // --------------------------------------------------------
+    // play
+    // --------------------------------------------------------
+    queue.add({
+      type: 'play',
+      time: 0,
+    });
+
+    queue.dequeue();
+
+    assert.deepEqual(queue.state, {
+      type: 'play',
+      time: 0,
+      speed: 1,
+      position: 0,
+      loop: false,
+      loopStart: 0,
+      loopEnd: Infinity,
+    });
+
+    // --------------------------------------------------------
+    // pause
+    // --------------------------------------------------------
+    queue.add({
+      type: 'pause',
+      time: 2,
+      speed: 0,
+    });
+
+    queue.dequeue();
+
+    assert.deepEqual(queue.state, {
+      type: 'pause',
+      time: 2,
+      speed: 0,
+      position: 2,
+      loop: false,
+      loopStart: 0,
+      loopEnd: Infinity,
+    });
+
+    // --------------------------------------------------------
+    // seek
+    // --------------------------------------------------------
+    queue.add({
+      type: 'seek',
+      time: 2,
+      position: 42,
+    });
+
+    queue.dequeue();
+
+    assert.deepEqual(queue.state, {
+      type: 'seek',
+      time: 2,
+      speed: 0,
+      position: 42,
+      loop: false,
+      loopStart: 0,
+      loopEnd: Infinity,
+    });
+
+
+    // --------------------------------------------------------
+    // loop
+    // --------------------------------------------------------
+    queue.add({
+      type: 'loop',
+      time: 4,
+      loop: true,
+    });
+
+    queue.dequeue();
+
+    assert.deepEqual(queue.state, {
+      type: 'loop',
+      time: 4,
+      speed: 0,
+      position: 42,
+      loop: true,
+      loopStart: 0,
+      loopEnd: Infinity,
+    });
   });
 });

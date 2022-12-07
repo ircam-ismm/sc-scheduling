@@ -4,7 +4,7 @@
  */
 export default class TransportControlEventQueue {
   constructor() {
-    this._state = {
+    this.state = {
       time: 0,
       position: 0,
       speed: 0,
@@ -13,30 +13,30 @@ export default class TransportControlEventQueue {
       loopEnd: Infinity,
     };
 
-    this._scheduledEvents = [];
+    this.scheduledEvents = [];
   }
 
   // this is used by the Transport
   get next() {
-    return this._scheduledEvents[0] || null;
+    return this.scheduledEvents[0] || null;
   }
 
   // these are attributes of the event queue that don't need to be
   // changed by timed events (tbc)
   get loopStart() {
-    return this._state.loopStart;
+    return this.state.loopStart;
   }
 
   set loopStart(value) {
-    this._state.loopStart = value;
+    this.state.loopStart = value;
   }
 
   get loopEnd() {
-    return this._state.loopStart;
+    return this.state.loopStart;
   }
 
   set loopEnd(value) {
-    this._state.loopEnd = value;
+    this.state.loopEnd = value;
   }
 
   /**
@@ -44,7 +44,7 @@ export default class TransportControlEventQueue {
    * @return {Object|null} event or null if discarded
    */
   add(event) {
-    const state = this._state;
+    const state = this.state;
 
     // sanitize events
     if (event.type !== 'play'
@@ -66,14 +66,14 @@ export default class TransportControlEventQueue {
     if (event.type === 'cancel') {
       // remove all event which time are >= to the one of the cancel event
       // no need to sort the queue
-      this._scheduledEvents = this._scheduledEvents.filter(e => e.time < event.time);
+      this.scheduledEvents = this.scheduledEvents.filter(e => e.time < event.time);
       return event; // this is always applied
     }
 
-    this._scheduledEvents.push(event);
+    this.scheduledEvents.push(event);
     // this could probably be simplified and made more efficient by just
     // placing the event manually at its right place
-    this._scheduledEvents.sort((a, b) => {
+    this.scheduledEvents.sort((a, b) => {
       if (a.time < b.time) {
         return -1;
       } else if (a.time > b.time) {
@@ -87,7 +87,7 @@ export default class TransportControlEventQueue {
     // remove consecutive events of same type (except seek)
     let eventType = state.type;
 
-    this._scheduledEvents = this._scheduledEvents.filter((event, i) => {
+    this.scheduledEvents = this.scheduledEvents.filter((event, i) => {
       // We want to keep all `seek` and `loop` events.
       // We don't need to update `eventType` because if we have:
       // `play|seek|seek|play` we want to get `play|seek|seek`,
@@ -104,11 +104,11 @@ export default class TransportControlEventQueue {
 
     // return null if event has been discarded
     // i.e. scheduled in the past or filtered as duplicate
-    return this._scheduledEvents.indexOf(event) !== -1 ? event : null;
+    return this.scheduledEvents.indexOf(event) !== -1 ? event : null;
   }
 
   dequeue() {
-    const currentState = this._state;
+    const currentState = this.state;
     const nextState = this.next;
 
     // update event `position` and `speed` informations according to last event
@@ -139,15 +139,15 @@ export default class TransportControlEventQueue {
     nextState.loopStart = currentState.loopStart;
     nextState.loopEnd = currentState.loopEnd;
 
-    this._scheduledEvents.shift();
-    this._state = nextState;
+    this.scheduledEvents.shift();
+    this.state = nextState;
 
-    return this._state;
+    return this.state;
   }
 
   // return estimated position at time according to state event informations
   getPositionAtTime(time) {
-    const state = this._state;
+    const state = this.state;
     // compute position from actual state informations
     let position = state.position + (time - state.time) * state.speed;
     // outside a loop we clamp computed position to last event position
@@ -169,7 +169,7 @@ export default class TransportControlEventQueue {
 
   // return estimated time at position according to state event informations
   getTimeAtPosition(position) {
-    const state = this._state;
+    const state = this.state;
     return state.time + (position - state.position) * state.speed;
   }
 }

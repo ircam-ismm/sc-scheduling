@@ -17,15 +17,15 @@ export default class Transport {
 
   // if we want to init the transport from the actual state of an existing one
   setState(state) {
-    this._eventQueue._state = state.currentState;
-    this._eventQueue._scheduledEvents = state.scheduledEvents;
+    this._eventQueue.state = state.currentState;
+    this._eventQueue.scheduledEvents = state.scheduledEvents;
   }
 
   // retrieves the full state of the event queue (i.e. state and scheduled events)
   getState() {
     return {
-      currentState: cloneDeep(this._eventQueue._state),
-      scheduledEvents: cloneDeep(this._eventQueue._scheduledEvents),
+      currentState: cloneDeep(this._eventQueue.state),
+      scheduledEvents: cloneDeep(this._eventQueue.scheduledEvents),
     };
   }
 
