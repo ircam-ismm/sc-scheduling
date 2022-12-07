@@ -1,0 +1,11 @@
+{
+  name: 'shared-clock',
+  author: 'by soundworks',
+
+  clients: {
+    player: {
+      target: 'browser',
+      default: true
+    },
+  },
+}
