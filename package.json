@@ -1,14 +1,14 @@
 {
   "name": "@ircam/sc-scheduling",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "",
   "type": "module",
-  "author": [],
+  "author": ["Benjamin Matuszewski"],
+  "license": "BSD-3-Clause",
   "exports": {
     ".": {
       "browser": "./src/index.js",
-      "import": "./src/index.js",
-      "require": "./dist/index.cjs"
+      "node": "./src/index.js"
     }
   },
   "scripts": {
@@ -19,5 +19,7 @@
     "mocha": "^10.1.0",
     "waves-masters": "^2.3.1"
   },
-  "license": "BSD-3-Clause"
+  "dependencies": {
+    "clone-deep": "^4.0.1"
+  }
 }

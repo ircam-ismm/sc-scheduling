@@ -26,7 +26,7 @@ transport.seek(3, 0);
 
 setTimeout(() => {
   console.log('restart');
-  transport.play(Date.now() / 1000 + 1);
+  transport.play(Date.now() / 1000 - startTime + 1);
   // scheduler.remove(transport);
   // // scheduler.remove(player);
 }, 4 * 1000);
