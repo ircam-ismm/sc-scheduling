@@ -2,12 +2,14 @@ import TransportEventQueue from './TransportEventQueue.js';
 import { quantize } from './utils.js';
 import cloneDeep from 'clone-deep';
 
+import Scheduler from './Scheduler.js';
+
 export default class Transport {
   constructor(scheduler) {
     // @todo - when scheduler is moved into the lib
-    // if (!(scheduler instanceof Scheduler)) {
-    //   throw new Error(`need scheduler`);
-    // }
+    if (!(scheduler instanceof Scheduler)) {
+      throw new Error(`[sc-scheduling] Invalid param, is not an instance of Scheduler`);
+    }
 
     this.scheduler = scheduler;
     this._eventQueue = new TransportEventQueue();
@@ -150,7 +152,6 @@ export default class Transport {
     // propagate transport events to all childrens, so that they can override
     // their next position
     for (let child of this._children.keys()) {
-      // allow engine to override it's next position
       const resetPosition = child.onTransportEvent(event, event.position, audioTime, dt);
 
       if (Number.isFinite(resetPosition)) {
@@ -164,12 +165,6 @@ export default class Transport {
     if (this._eventQueue.next) {
       return this._eventQueue.next.time;
     } else {
-      // currently the scheduler removes the engine from the scheduler queue when
-      // Infinity is returned, this should be updated so that:
-      // - Infinity keeps the engine in the scheduler queue, i.e. I still have
-      // something to do but I don't know when
-      // - Non numerical values (e.g. null, undefined or falsy values) explicitely
-      // remove the engine from the queue, i.e. I have nothing left to do
       return Infinity;
     }
   }
