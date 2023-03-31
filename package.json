@@ -6,10 +6,7 @@
   "author": ["Benjamin Matuszewski"],
   "license": "BSD-3-Clause",
   "exports": {
-    ".": {
-      "browser": "./src/index.js",
-      "node": "./src/index.js"
-    }
+    ".": "./src/index.js"
   },
   "scripts": {
     "test": "mocha"

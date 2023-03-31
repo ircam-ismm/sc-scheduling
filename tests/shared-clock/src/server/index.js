@@ -67,7 +67,8 @@ console.log(`
     });
 
     const sync = server.pluginManager.get('sync');
-    const scheduler = new Scheduler(() => sync.getSyncTime());
+    const getTimeFunction = () => sync.getSyncTime();
+    const scheduler = new Scheduler(getTimeFunction);
     const clock = new Transport(scheduler);
 
     const transport = await server.stateManager.create('transport', {
@@ -188,12 +189,19 @@ console.log(`
 
     const engine = {
       onScheduledEvent(event, position) {
+        console.log(event, position);
         const transportState = clock.getState();
         transport.set({ transportState });
       }
     };
 
     clock.add(engine);
+
+    setInterval(() => {
+      const now = getTimeFunction();
+      const position = clock.getPositionAtTime(now);
+      console.log(position);
+    }, 250);
 
   } catch (err) {
     console.error(err.stack);

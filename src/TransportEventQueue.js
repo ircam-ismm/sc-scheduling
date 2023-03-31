@@ -16,13 +16,11 @@ export default class TransportControlEventQueue {
     this.scheduledEvents = [];
   }
 
-  // this is used by the Transport
   get next() {
     return this.scheduledEvents[0] || null;
   }
 
-  // these are attributes of the event queue that don't need to be
-  // changed by timed events (tbc)
+  // attributes of the event queue that don't need to be changed by timed events (tbc)
   get loopStart() {
     return this.state.loopStart;
   }
