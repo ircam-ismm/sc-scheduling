@@ -10,7 +10,7 @@ _Warning: this library is in development_
 - `Transport` is the thing that control timelines or engines with play / pause / etc.
 - `Timeline` is an abstraction that can host abstractions and place them in time according to each others
 
-## 
+## Transport example
 
 ```js
 const scheduler = new Scheduler(() => Date.now() / 1000);
@@ -37,8 +37,17 @@ transport.seek(3, 23.5); // seek at position 23.5
 // stop and seek to zero
 transport.pause(5); 
 transport.seek(5, 0);
+```
 
+## Notes
 
+- [ ] use symbols for current `master` and `queueTime` key added to engines by Scheduler and PriorityQueue.
+
+## Todos
+
+Proposal for Timeline API
+
+```js
 // ----------------------------------------
 // timeline
 // ----------------------------------------

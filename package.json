@@ -3,7 +3,10 @@
   "version": "0.0.0",
   "description": "",
   "type": "module",
-  "author": ["Benjamin Matuszewski"],
+  "author": [
+    "Benjamin Matuszewski",
+    "Norbert Schnell"
+  ],
   "license": "BSD-3-Clause",
   "exports": {
     ".": "./src/index.js"
@@ -12,11 +15,13 @@
     "test": "mocha"
   },
   "devDependencies": {
+    "@ircam/sc-gettime": "^1.0.0",
     "chai": "^4.3.7",
     "mocha": "^10.1.0",
     "waves-masters": "^2.3.1"
   },
   "dependencies": {
+    "@ircam/sc-utils": "^1.0.1",
     "clone-deep": "^4.0.1"
   }
 }

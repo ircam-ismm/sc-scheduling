@@ -167,7 +167,6 @@ export default class TransportControlEventQueue {
 
   // return estimated time at position according to state event informations
   getTimeAtPosition(position) {
-    const state = this.state;
-    return state.time + (position - state.position) * state.speed;
+    return this.state.time + (position - this.state.position) * this.state.speed;
   }
 }

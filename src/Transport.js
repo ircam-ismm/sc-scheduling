@@ -151,11 +151,13 @@ export default class Transport {
     // their next position
     for (let child of this._children.keys()) {
       // allow engine to override it's next position
-      const resetPosition = child.onScheduledEvent(event, event.position, audioTime, dt);
+      const resetPosition = child.onTransportEvent(event, event.position, audioTime, dt);
 
-      if (resetPosition) {
+      if (Number.isFinite(resetPosition)) {
         const resetTime = this._eventQueue.getTimeAtPosition(resetPosition);
         this.scheduler.resetEngineTime(child, resetTime);
+      } else if (resetPosition === Number.POSITIVE_INFINITY) {
+        this.scheduler.resetEngineTime(child, Infinity);
       }
     }
 
@@ -187,16 +189,18 @@ export default class Transport {
     }
 
     child.advanceTime = (currentTime, audioTime, dt) => {
-      if (this._queue.current.speed > 0) {
+      if (this._eventQueue.state.speed > 0) {
         const position = this._eventQueue.getPositionAtTime(currentTime);
         const nextPosition = oldAdvanceTime.call(child, position, audioTime, dt);
 
         // make sure the engine does not remove itself from the scheduler
-        if (Number.isFinite(nextTime)) {
+        if (Number.isFinite(nextPosition)) {
           const nextTime = this._eventQueue.getTimeAtPosition(nextPosition);
           return nextTime;
-        } else {
+        } else  if (nextTime === Number.POSITIVE_INFINITY) {
           return Infinity;
+        } else {
+          return null;
         }
       }
     }

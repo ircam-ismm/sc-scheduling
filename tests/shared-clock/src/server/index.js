@@ -188,20 +188,26 @@ console.log(`
     });
 
     const engine = {
-      onScheduledEvent(event, position) {
+      onTransportEvent(event, position) {
         console.log(event, position);
         const transportState = clock.getState();
         transport.set({ transportState });
+
+        return event.speed > 0 ? position : 10^9;
+      },
+      advanceTime(position, currentTime, dt) {
+        console.log(position, currentTime, dt);
+        return position + 0.25;
       }
     };
 
     clock.add(engine);
 
-    setInterval(() => {
-      const now = getTimeFunction();
-      const position = clock.getPositionAtTime(now);
-      console.log(position);
-    }, 250);
+    // setInterval(() => {
+    //   const now = getTimeFunction();
+    //   const position = clock.getPositionAtTime(now);
+    //   console.log(position);
+    // }, 250);
 
   } catch (err) {
     console.error(err.stack);
