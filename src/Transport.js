@@ -192,7 +192,7 @@ export default class Transport {
         if (Number.isFinite(nextPosition)) {
           const nextTime = this._eventQueue.getTimeAtPosition(nextPosition);
           return nextTime;
-        } else  if (nextTime === Number.POSITIVE_INFINITY) {
+        } else  if (nextPosition === Number.POSITIVE_INFINITY) {
           return Infinity;
         } else {
           return null;
