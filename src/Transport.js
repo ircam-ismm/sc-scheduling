@@ -14,7 +14,7 @@ export default class Transport {
     this.scheduler = scheduler;
     this._eventQueue = new TransportEventQueue();
 
-    this._children = new Set(); // child / oldAdvanceTime
+    this._children = new Map(); // child / oldAdvanceTime
   }
 
   // if we want to init the transport from the actual state of an existing one
@@ -200,7 +200,7 @@ export default class Transport {
       }
     }
 
-    this._children.add(child, oldAdvanceTime);
+    this._children.set(child, oldAdvanceTime);
 
     // allow engine to only implement `advanceTime`
     if (!child.onTransportEvent) {
@@ -215,6 +215,10 @@ export default class Transport {
     this.scheduler.add(child, Infinity);
   }
 
+  has(child) {
+    return this._children.has(child);
+  }
+
   // @todo - draft to be completed
   remove(child) {
     // remove from scheduler
@@ -223,6 +227,6 @@ export default class Transport {
     // un-monkey patch the advanceTime
     const oldAdvanceTime = this._children.get(child);
     child.advanceTime = oldAdvanceTime;
-    this._children.remove(child);
+    this._children.delete(child);
   }
 }

@@ -39,11 +39,17 @@ transport.pause(5);
 transport.seek(5, 0);
 ```
 
-## Notes
+## Todos
 
 - [ ] use symbols for current `master` and `queueTime` key added to engines by Scheduler and PriorityQueue.
+- [ ] Merge and simplify Scheduler and SchedulingQueue
+- [ ] Documentation
+- [ ] Harmonize semantics of `onTransportEvent` and `advanceTime` return values:
+  - number (respectively >= or strictly >) to input param, schedule next call
+  - ±Infinity keep in scheduler
+  - else remove from schdeuler
 
-## Todos
+## Notes
 
 Proposal for Timeline API
 
