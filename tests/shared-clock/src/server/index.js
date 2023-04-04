@@ -9,9 +9,6 @@ import pluginSyncFactory from '@soundworks/plugin-sync/server';
 import PlayerExperience from './PlayerExperience.js';
 import transportSchema from './schemas/transport.js';
 
-import { Scheduler } from 'waves-masters';
-// import { getTime } from '@ircam/sc-gettime';
-
 import getConfig from '../utils/getConfig.js';
 const ENV = process.env.ENV || 'default';
 const config = getConfig(ENV);
@@ -32,8 +29,9 @@ console.log(`
 `);
 
 (async function launch() {
-  let mod = await import('../../../../src/Transport.js');
-  const Transport = mod.default;
+
+  let mod = await import('../../../../src/index.js');
+  const { Scheduler, Transport } = mod;
 
   mod = await import('@ircam/sc-gettime');
   const { getTime } = mod;

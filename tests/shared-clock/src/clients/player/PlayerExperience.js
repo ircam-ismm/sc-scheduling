@@ -2,8 +2,8 @@ import { AbstractExperience } from '@soundworks/core/client';
 import { render, html, nothing } from 'lit-html';
 import renderInitializationScreens from '@soundworks/template-helpers/client/render-initialization-screens.js';
 
-import { Scheduler } from 'waves-masters';
 import Transport from '../../../../../src/Transport.js';
+import Scheduler from '../../../../../src/Scheduler.js';
 
 import '@ircam/simple-components/sc-text.js';
 import '@ircam/simple-components/sc-button.js';
