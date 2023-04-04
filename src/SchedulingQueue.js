@@ -90,9 +90,9 @@ class SchedulingQueue {
 
   // remove a time engine from the queue
   remove(engine) {
-    if (engine.master !== this) {
-      throw new Error("object has not been added to this scheduler");
-    }
+    // if (engine.master !== this) {
+    //   throw new Error("object has not been added to this scheduler");
+    // }
 
     engine.master = null;
 
@@ -106,9 +106,9 @@ class SchedulingQueue {
 
   // reset next engine time
   resetEngineTime(engine, time = this.currentTime) {
-    if (engine.master !== this) {
-      throw new Error("object has not been added to this scheduler");
-    }
+    // if (engine.master !== this) {
+    //   throw new Error("object has not been added to this scheduler");
+    // }
 
     let nextTime;
 

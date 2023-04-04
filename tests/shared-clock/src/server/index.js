@@ -186,8 +186,8 @@ console.log(`
     });
 
     const engine = {
-      onTransportEvent(event, position) {
-        console.log(event, position);
+      onTransportEvent(event, position, currentTime, dt) {
+        console.log(event, position, currentTime, dt);
         const transportState = clock.getState();
         transport.set({ transportState });
 
