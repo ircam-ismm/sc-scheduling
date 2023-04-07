@@ -4,6 +4,10 @@ export default {
     default: 'stop',
     filterChange: false, // we want to be able to seek as many time as we want
   },
+  mtcApplyAt: {
+    type: 'float',
+    event: true,
+  },
   seekPosition: {
     type: 'float',
     default: 0,

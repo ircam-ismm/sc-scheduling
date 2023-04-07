@@ -14,6 +14,9 @@ const ENV = process.env.ENV || 'default';
 const config = getConfig(ENV);
 const server = new Server();
 
+import MTCReceive from './MTCReceive.js';
+import MTCSend from './MTCSend.js';
+
 // html template and static files (in most case, this should not be modified)
 server.templateEngine = { compile };
 server.templateDirectory = path.join('.build', 'server', 'tmpl');
@@ -73,11 +76,20 @@ console.log(`
       transportState: clock.getState(),
     });
 
+
     server.stateManager.registerUpdateHook('transport', (updates, currentValues) => {
       if (updates.command) {
-        const { command } = updates;
+        const { command, mtcApplyAt } = updates;
         const { enablePreRoll, preRollDuration } = currentValues;
-        const applyAt = sync.getSyncTime() + 0.1;
+
+        let applyAt;
+
+        // console.log(mtcApplyAt);
+        if (mtcApplyAt === undefined) {
+          applyAt = sync.getSyncTime() + 0.1;
+        } else {
+          applyAt = mtcApplyAt;
+        }
 
         const clockEvents = [
           {
@@ -185,17 +197,48 @@ console.log(`
       }
     });
 
+
+    const mtcSend = new MTCSend('IAC Driver Bus 1', getTime, clock);
+    clock.add(mtcSend);
+
+    // const mtcReceive = new MTCReceive('IAC Driver Bus 1', getTime, clock, {
+    //   onStart: (time) => {
+    //     // console.log('start', time);
+    //     transport.set({
+    //       command: 'start',
+    //       mtcApplyAt: time,
+    //     });
+    //   },
+    //   onSeek: (time, position) => {
+    //     // console.log('seek', time, position);
+    //     transport.set({
+    //       command: 'seek',
+    //       mtcApplyAt: time,
+    //       seekPosition: position,
+    //     });
+    //   },
+    //   onPause: (time) => {
+    //     // console.log('pause', time);
+    //     transport.set({
+    //       command: 'pause',
+    //       mtcApplyAt: time
+    //     });
+    //   },
+    // });
+
+    // // this will call the onTransportEvent method
+    // clock.add(mtcReceive);
+
     const engine = {
       onTransportEvent(event, position, currentTime, dt) {
-        console.log(event, position, currentTime, dt);
         const transportState = clock.getState();
         transport.set({ transportState });
 
-        return event.speed > 0 ? position : 10^9;
+        return event.speed > 0 ? position : Infinity;
       },
       advanceTime(position, currentTime, dt) {
-        console.log(position, currentTime, dt);
-        return position + 0.25;
+      //   console.log(position, currentTime, dt);
+         return position + 0.25;
       }
     };
 
