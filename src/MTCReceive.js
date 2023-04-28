@@ -1,6 +1,9 @@
+import hrtime from 'browser-hrtime';
 import JZZ from 'jzz';
 import NanoTimer from 'nanotimer';
 import Timecode from 'smpte-timecode';
+
+process.version = '16.12.0';
 
 export default class MTCReceive {
   constructor(midiInterface, getTimeFunction, transport, transportCallbacks) {
@@ -27,6 +30,7 @@ export default class MTCReceive {
     this.checkRemoteStart = true;
     this.checkRemoteStop = true;
     this.isPlaying = false;
+    this.inSync = false;
 
     this.receiveTC = this.receiveTC.bind(this);
 
@@ -34,16 +38,22 @@ export default class MTCReceive {
     this.input = JZZ().or('Cannot start MIDI engine!')
       .openMidiIn(midiInterface).or('MIDI-In: Cannot open!')
       .and(function() { console.log('MIDI-In:', this.name()); });
-    this.slave = JZZ.SMPTE(this.framerate,0,0,0);
+    this.slaveClock = JZZ.SMPTE(this.framerate,0,0,0);
     this.receiver = JZZ().Widget({ _receive: this.receiveTC });
     this.input.connect(this.receiver);
 
     // Init local timer
-    const timer = new NanoTimer();
+    this.timer = new NanoTimer();
     const tickInterval = 1 / (this.framerate * this.ticksPerFrame);
 
-    timer.setInterval(() => { this.syncClock() }, '', `${tickInterval}s`);
+    this.timer.setInterval(() => { this.syncClock() }, '', `${tickInterval}s`);
 
+  }
+
+  closeEngine() {
+    this.input.close();
+    this.timer.clearInterval();
+    this.inSync = false;
   }
 
   frameToSeconds(numFrames) {
@@ -94,36 +104,43 @@ export default class MTCReceive {
   receiveTC(msg) {
     this.localTime = this.getTime();
 
-    if (this.slave.read(msg)) {
-      // console.log(this.slave.toString());
-      // reset notc flag to handle next stop
+    if (this.slaveClock.read(msg)) {
+
+      // here we should wait for sync, which is 8 QF messages = 2 full frame messages
+      setTimeout(() => {
+        this.inSync = true;
+      },this.frameToSeconds(2)*1000);
+
+     // reset flag to handle next stop
       this.checkRemoteStop = true;
 
       if (this.checkRemoteStart) {
-        //play !
-        const nowTC = Timecode(this.slave.toString(), this.framerate, false);
-        nowTC.add(this.lookAhead);
+        if (this.inSync) {
+          //play !
+          const nowTC = Timecode(this.slaveClock.toString(), this.framerate, false);
+          nowTC.add(this.lookAhead);
 
-        const playFrom = this.SMPTEToSeconds(nowTC.toString());
-        const playAt = this.localTime + this.frameToSeconds(this.lookAhead);
+          const playFrom = this.SMPTEToSeconds(nowTC.toString());
+          const playAt = this.localTime + this.frameToSeconds(this.lookAhead);
 
-        this._onSeek(this.localTime, playFrom);
-        this._onStart(playAt);
+          this._onSeek(this.localTime, playFrom);
+          this._onStart(playAt);
 
-        // console.log(`seek to ${playFrom} -- schedule play at ${playAt}`);
+          // console.log(`seek to ${playFrom} -- schedule play at ${playAt}`);
 
-        this.checkRemoteStart = false;
+          this.checkRemoteStart = false;
+        }
 
       } else {
         // console.log("chasing...");
         if (this.isPlaying === true) {
           const localPosition = this.transport.getPositionAtTime(this.localTime);
-          const remotePosition = this.SMPTEToSeconds(this.slave.toString());
+          const remotePosition = this.SMPTEToSeconds(this.slaveClock.toString());
           const clockDiff = Math.abs(localPosition - remotePosition);
 
           if (clockDiff > this.frameToSeconds(this.maxDriftError)) {
             // console.log("more than 8 frames out of sync...");
-            const nowTC = Timecode(this.slave.toString(), this.framerate, false);
+            const nowTC = Timecode(this.slaveClock.toString(), this.framerate, false);
             nowTC.add(this.lookAhead);
 
             const playFrom = this.SMPTEToSeconds(nowTC.toString());
@@ -148,7 +165,7 @@ export default class MTCReceive {
     const now = this.getTime();
     const clockDt = now - this.localTime;
     // time between 2 ticks
-    const acceptedClockDrift = this.frameToSeconds(1 / this.ticksPerFrame);
+    const acceptedClockDrift = this.frameToSeconds(this.maxDriftError);
 
     if (clockDt > acceptedClockDrift) {
       // reset tc flag to handle next start
@@ -158,6 +175,7 @@ export default class MTCReceive {
         this._onPause(now);
         // console.log(`pause message now`);
         this.checkRemoteStop = false;
+        this.inSync = false;
       }
     } else {
       // console.log("clock is in sync, chasing...");

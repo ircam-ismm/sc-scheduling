@@ -1,5 +1,8 @@
+import hrtime from 'browser-hrtime';
 import JZZ from 'jzz';
 import NanoTimer from 'nanotimer';
+
+process.version = '16.12.0';
 
 export default class MTCSend {
   constructor(midiInterface, getTimeFunction, transport) {
@@ -16,13 +19,16 @@ export default class MTCSend {
       .openMidiOut(midiInterface).or('MIDI-Out: Cannot open!')
       .and(function() { console.log('MIDI-Out:', this.name()); });
 
-    this.master = JZZ().SMPTE(this.framerate,0,0,0);
+    this.masterClock = JZZ().SMPTE(this.framerate,0,0,0);
     this.sender = JZZ().Widget();
     this.sender.connect(this.out);
 
     // timer init
     this.timer = new NanoTimer();
 
+  }
+  closeEngine() {
+    this.out.close();
   }
   secondsToSMPTE(seconds) {
     this._f = Math.floor((seconds % 1) * this.framerate);
@@ -47,15 +53,15 @@ export default class MTCSend {
   }
   update() {
     const tickInterval = 1 / (this.framerate * this.ticksPerFrame);
-    console.log(tickInterval);
+    // console.log(tickInterval);
 
     this.timer.setInterval(() => {
-      this.sender.mtc(this.master);
-      this.master.incrQF();
+      this.sender.mtc(this.masterClock);
+      this.masterClock.incrQF();
 
       // check drift between JZZ SMPTE and local clock
       const localPosition = this.transport.getPositionAtTime(this.getTime());
-      const remotePosition = this.SMPTEToSeconds(this.master.toString());
+      const remotePosition = this.SMPTEToSeconds(this.masterClock.toString());
       const clockDiff = Math.abs(localPosition - remotePosition);
       // should do something if drift exeed a value...
 
@@ -72,7 +78,7 @@ export default class MTCSend {
         break;
       case 'seek':
         const seek = this.secondsToSMPTE(event.position);
-        this.master.reset(this.framerate, seek.h, seek.m, seek.s, seek.f);
+        this.masterClock.reset(this.framerate, seek.h, seek.m, seek.s, seek.f);
         break;
       default:
         console.log("unparsed message",event);
