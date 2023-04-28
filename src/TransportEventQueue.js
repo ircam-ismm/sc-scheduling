@@ -157,6 +157,12 @@ export default class TransportControlEventQueue {
       position = position % (state.loopEnd - state.loopStart);
       position += state.loopStart;
 
+      // update the time, and position of the state so that `getTimeAtPosition`
+      // stays coherent for the engines added to the transport
+      const diff = position - state.loopStart;
+      state.time = time - diff;
+      state.position = state.loopStart;
+
       // if the state position is greater than loop start (e.g. if we pause in
       // the middle of the loop), loop start should be used as the lower boundary.
       lowerBoundary = Math.min(state.position, this.loopStart);

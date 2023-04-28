@@ -164,7 +164,7 @@ console.log(`
               position: 0,
             });
           } else {
-            // for seek pause and stop, we want to stop the playroll now
+            // for seek, pause and stop, we want to stop the playroll now
             preRollEvents.push({
               type: 'pause',
               time: applyAt,
@@ -184,7 +184,6 @@ console.log(`
         };
       }
     });
-
 
     const playerExperience = new PlayerExperience(server, 'player');
     // start all the things

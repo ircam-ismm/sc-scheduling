@@ -17,6 +17,14 @@ export default class Transport {
     this._children = new Map(); // child / oldAdvanceTime
   }
 
+  get currentTime() {
+    return this.scheduler.currentTime;
+  }
+
+  get audioTime() {
+    return this.scheduler.audioTime;
+  }
+
   // if we want to init the transport from the actual state of an existing one
   setState(state) {
     this._eventQueue.state = state.currentState;
@@ -113,6 +121,10 @@ export default class Transport {
     return this.addEvent(event);
   }
 
+  addEvents(eventList) {
+    return eventList.map(event => this.addEvent(event));
+  }
+
   /**
    * Add raw event to the queue. This is usefull to control several transports
    * from a central event producer (e.g. on the network)
@@ -186,11 +198,13 @@ export default class Transport {
     child.advanceTime = (currentTime, audioTime, dt) => {
       if (this._eventQueue.state.speed > 0) {
         const position = this._eventQueue.getPositionAtTime(currentTime);
+        console.log('called engine at', position, currentTime);
         const nextPosition = oldAdvanceTime.call(child, position, audioTime, dt);
 
         // make sure the engine does not remove itself from the scheduler
         if (Number.isFinite(nextPosition)) {
           const nextTime = this._eventQueue.getTimeAtPosition(nextPosition);
+          console.log('reschedule engine at', nextPosition, nextTime);
           return nextTime;
         } else  if (nextPosition === Number.POSITIVE_INFINITY) {
           return Infinity;
