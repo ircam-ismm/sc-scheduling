@@ -5,14 +5,14 @@ import NanoTimer from 'nanotimer';
 process.version = '16.12.0';
 
 export default class MTCSend {
-  constructor(midiInterface, getTimeFunction, transport) {
+  constructor(midiInterface, getTimeFunction, transport, params) {
     // function dependencies
     this.getTime = getTimeFunction;
     this.transport = transport;
 
     // these default variables are the one used by reaper
-    this.framerate = 25;
-    this.ticksPerFrame = 4
+    this.framerate = params.framerate;
+    this.ticksPerFrame = params.ticksPerFrame;
 
     // JZZ init
     this.out = JZZ().or('Cannot start MIDI engine!')

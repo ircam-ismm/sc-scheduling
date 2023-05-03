@@ -6,7 +6,7 @@ import Timecode from 'smpte-timecode';
 process.version = '16.12.0';
 
 export default class MTCReceive {
-  constructor(midiInterface, getTimeFunction, transport, transportCallbacks) {
+  constructor(midiInterface, getTimeFunction, transport, params, transportCallbacks) {
     // function dependencies
     this.getTime = getTimeFunction;
     this.transport = transport;
@@ -16,14 +16,14 @@ export default class MTCReceive {
     this._onPause = transportCallbacks.onPause;
 
     // these default variables are the one used by reaper
-    this.framerate = 25;
-    this.ticksPerFrame = 4;
+    this.framerate = params.framerate;
+    this.ticksPerFrame = params.ticksPerFrame;
 
     // number of frames of deviation accepted between remote and local position.
     // If the delta if greater than position error, we seek.
-    this.maxDriftError = 8; // en Frames
+    this.maxDriftError = params.maxDriftError; // en Frames
 
-    this.lookAhead = 30; // FPS
+    this.lookAhead = params.lookAhead; // FPS
 
     // private variables
     this.localTime = this.getTime(); // updated when a tick is received

@@ -1,6 +1,6 @@
 import "core-js/stable";
 import "regenerator-runtime/runtime";
-import { render, html } from 'lit/html.js';
+import { render, html, nothing } from 'lit/html.js';
 import { resumeAudioContext } from '@ircam/resume-audio-context';
 import { getTime } from '@ircam/sc-gettime';
 
@@ -11,6 +11,7 @@ import '@ircam/simple-components/sc-clock.js';
 import '@ircam/simple-components/sc-transport.js';
 import '@ircam/simple-components/sc-text.js';
 import '@ircam/simple-components/sc-toggle.js';
+import '@ircam/simple-components/sc-number.js';
 
 import { JZZ } from 'jzz';
 
@@ -33,38 +34,55 @@ let selectedOutInterface;
 let mtcSend;
 let mtcReceive;
 
+const mtcReceiveParams = {
+  framerate: 25,
+  ticksPerFrame: 4,
+  maxDriftError: 8,
+  lookAhead: 30
+};
+
+const mtcSendParams = {
+  framerate: 25,
+  ticksPerFrame: 4
+};
+
 function createMTCSend(midiInterface) {
-  mtcSend = new MTCSend(midiInterface, getTime, transport);
+  setTransportState('stop');
+  mtcSend = new MTCSend(midiInterface, getTime, transport, mtcReceiveParams);
   transport.add(mtcSend);
+  updateView();
+}
+
+function deleteMTCSend() {
+  transport.remove(mtcSend);
+  mtcSend.closeEngine();
+  mtcSend = null;
+  setTransportState('stop');
 }
 
 function createMTCReceive(midiInterface) {
-  mtcReceive = new MTCReceive(midiInterface, getTime, transport, {
+  mtcReceive = new MTCReceive(midiInterface, getTime, transport, mtcReceiveParams, {
     onStart: (time) => {
-      console.log('play', time);
-      const now = getTime();
-      transport.cancel(now);
-      transport.play(time);
-      updateView();
+      setTransportState('play', time);
     },
     onSeek: (time, position) => {
       // console.log('seek', time, position);
-      const now = getTime();
-      transport.cancel(now);
-      transport.pause(now);
-      transport.seek(time, position);
+      setTransportState('seek', time, position)
     },
     onPause: (time) => {
-      console.log('pause', time);
-      const now = getTime();
-      transport.cancel(now);
-      transport.pause(time);
-      transport.seek(time, 0);
-      updateView();
+      setTransportState('pause', time);
     },
   });
   // this will call the onTransportEvent method
   transport.add(mtcReceive);
+  updateView();
+}
+
+function deleteMTCReceive() {
+  transport.remove(mtcReceive);
+  mtcReceive.closeEngine();
+  mtcReceive = null;
+  setTransportState('stop');
 }
 
 function midiSuccessAccess(webmidi) {
@@ -74,12 +92,12 @@ function midiSuccessAccess(webmidi) {
   webmidi.inputs.forEach(function(port) { inputDeviceList.push(port.name) });
   JZZ.close();
 
-  updateView();
 
   // JZZ init
   selectedInInterface = inputDeviceList[0];
   selectedOutInterface = outputDeviceList[0];
 
+  updateView();
 }
 
 function midiFailAccess() {
@@ -87,13 +105,16 @@ function midiFailAccess() {
   updateView();
 }
 
-function setTransportState(state) {
+function setTransportState(state, time = null, pos = 0) {
   const now = getTime() + 0.05;
+  if (!time) {
+    time = now
+  }
 
   switch (state) {
     case 'play': {
       transport.cancel(now);
-      transport.play(now);
+      transport.play(time);
       break;
     }
     case 'stop': {
@@ -102,11 +123,28 @@ function setTransportState(state) {
       transport.seek(now, 0);
       break;
     }
+    case 'seek': {
+      transport.cancel(now);
+      transport.pause(now);
+      transport.seek(now, pos);
+      break;
+    }
+    case 'pause': {
+      transport.pause(now);
+      break;
+    }
   }
+  const delta = (time-now)+0.1;
+  setTimeout(updateView, delta*1000);
 }
 
 function getTransportState() {
-  const state = transport.getState().currentState.speed === 0 ? 'play' : 'stop';
+  let state;
+  if (!mtcReceive) {
+    state = transport.getState().currentState.speed === 0 ? 'stop' : 'play';
+  } else {
+    state = transport.getState().currentState.speed === 0 ? 'pause' : 'play';
+  }
   return state
 }
 
@@ -119,71 +157,118 @@ function updateView() {
       return transport.getPositionAtTime(now);
     }}"
   ></sc-clock>
-  <sc-transport
-    buttons="[play, stop]"
-    width="50"
-    state="${getTransportState()}"
-    @change=${e => setTransportState(e.detail.value)}
-  ></sc-transport>
+  ${!mtcReceive ?
+  html`
+    <sc-transport
+      buttons="[play, stop]"
+      width="50"
+      state="${getTransportState()}"
+      @change=${e => setTransportState(e.detail.value)}
+    ></sc-transport>`
+    :
+  html`
+    <sc-transport
+      buttons="[play, pause]"
+      width="50"
+      state="${getTransportState()}"
+    ></sc-transport>
+  `}
   <sc-text
     value="midi access state is ${midiAccessState}"
     readonly
   ></sc-text><br/>
   <sc-text
-    value="midi input device list"
-    readonly
-  ></sc-text>
-  <select
-    @change=${e => selectedInterface = e.target.value}
-  >
-  ${Object.keys(inputDeviceList).map(name => {
-    return html`<option value="${inputDeviceList[name]}">${inputDeviceList[name]}</option>`;
-  })}
-  </select><br/>
-  <sc-text
-    value="midi output device list"
-    readonly
-  ></sc-text>
-  <select
-    @change=${e => selectedInterface = e.target.value}
-  >
-  ${Object.keys(outputDeviceList).map(name => {
-    return html`
-      <option value="${outputDeviceList[name]}">${outputDeviceList[name]}</option>`;
-  })}
-  </select><br/>
-  <sc-text
-    value="active MTC Send"
-    readonly
-  ></sc-text>
-  <sc-toggle
-    @change="${(e) => {
-      if (e.detail.value === true) {
-        createMTCSend(selectedOutInterface);
-      } else {
-        transport.remove(mtcSend);
-        mtcSend.closeEngine();
-      }
-    }}"
-  ></sc-toggle><br/>
-  <sc-text
     value="active MTC Receive"
     readonly
   ></sc-text>
-  <sc-toggle
+  ${!mtcSend ? html`
+    <sc-toggle
     @change="${(e) => {
       if (e.detail.value === true) {
         createMTCReceive(selectedInInterface);
       } else {
-        transport.remove(mtcReceive);
-        const now = getTime();
-        transport.cancel(now);
-        transport.pause(now);
-        transport.seek(now,0);
-        mtcReceive.closeEngine();
+        deleteMTCReceive();
       }
     }}"
-  ></sc-toggle><br/>
+    ></sc-toggle>
+  ` : nothing}
+  </br>
+  <sc-text
+    value="active MTC Send"
+    readonly
+  ></sc-text>
+  ${!mtcReceive ? html`
+    <sc-toggle
+    @change="${(e) => {
+      if (e.detail.value === true) {
+        createMTCSend(selectedOutInterface);
+      } else {
+        deleteMTCSend();
+      }
+    }}"
+    ></sc-toggle>` : nothing}
+  </br>
+  <sc-text
+    value="input device = ${selectedInInterface}"
+    readonly
+  ></sc-text>
+  ${(!mtcReceive && !mtcSend) ? html`
+    <select
+      @change=${e => selectedInInterface = e.target.value}
+    >
+    <option>please select</option>
+    ${Object.keys(inputDeviceList).map(name => {
+      return html`<option value="${inputDeviceList[name]}">${inputDeviceList[name]}</option>`;
+    })}
+    </select>
+  ` : nothing}
+  <br/>
+  <sc-text
+    value="output device = ${selectedOutInterface}"
+    readonly
+  ></sc-text>
+  ${(!mtcReceive && !mtcSend) ? html`
+    <select
+      @change=${e => selectedOutInterface = e.target.value}
+    >
+    <option>please select</option>
+    ${Object.keys(outputDeviceList).map(name => {
+      return html`
+        <option value="${outputDeviceList[name]}">${outputDeviceList[name]}</option>`;
+    })}
+    </select>
+  ` : nothing}
+  <br/>
+  <sc-text
+    value="mtc receive framerate = ${mtcReceiveParams.framerate}"
+    readonly
+  ></sc-text>
+  ${(!mtcReceive && !mtcSend) ? html`
+  <select
+    @change=${e => mtcReceiveParams.framerate = e.target.value}
+    value=${mtcReceiveParams.framerate}
+  >
+    <option value="">please select</option>
+    <option value="24">24</option>
+    <option value="25">25</option>
+    <option value="30">30</option>
+  </select>` : nothing}
+  <br/>
+  <sc-text
+    value="mtc send framerate = ${mtcSendParams.framerate}"
+    readonly
+  ></sc-text>
+  ${(!mtcReceive && !mtcSend) ? html`
+  <select
+    @change=${e => mtcSendParams.framerate = e.target.value}
+    value=${mtcSendParams.framerate}
+  >
+    <option value="">please select</option>
+    <option value="24">24</option>
+    <option value="25">25</option>
+    <option value="30">30</option>
+  </select><br/>` : nothing}
+  <br/>
 `, document.body);
 }
 
