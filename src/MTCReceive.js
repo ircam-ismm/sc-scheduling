@@ -27,10 +27,10 @@ export default class MTCReceive {
 
     // private variables
     this.localTime = this.getTime(); // updated when a tick is received
-    this.checkRemoteStart = true;
-    this.checkRemoteStop = true;
-    this.isPlaying = false;
-    this.inSync = false;
+    this.remoteTime = "";
+    this.checkRemoteState = 'pause';
+    this.remoteSyncCounter = 0;
+    this.blockIncomeMsg = false;
 
     this.receiveTC = this.receiveTC.bind(this);
 
@@ -41,6 +41,7 @@ export default class MTCReceive {
     this.slaveClock = JZZ.SMPTE(this.framerate,0,0,0);
     this.receiver = JZZ().Widget({ _receive: this.receiveTC });
     this.input.connect(this.receiver);
+
 
     // Init local timer
     this.timer = new NanoTimer();
@@ -53,7 +54,11 @@ export default class MTCReceive {
   closeEngine() {
     this.input.close();
     this.timer.clearInterval();
-    this.inSync = false;
+    this.checkRemoteState = 'pause';
+    this.remoteSyncCounter = 0;
+    this.blockIncomeMsg = false;
+
+
   }
 
   frameToSeconds(numFrames) {
@@ -83,83 +88,66 @@ export default class MTCReceive {
     return output;
   }
 
-  // method that is called by the sc-transport
-  onTransportEvent(event, position, currentTime, dt) {
-    switch (event.type) {
-      case 'play':
-        this.isPlaying = true;
-        break;
-      case 'pause':
-        this.isPlaying = false;
-        break;
-      case 'seek':
-        break;
-      default:
-        break;
-    }
-
-    return event.speed > 0 ? position : Infinity;
-  }
-
   receiveTC(msg) {
-    this.localTime = this.getTime();
-
     if (this.slaveClock.read(msg)) {
 
-      // here we should wait for sync, which is 8 QF messages = 2 full frame messages
-      setTimeout(() => {
-        this.inSync = true;
-      },this.frameToSeconds(2)*1000);
+      this.localTime = this.getTime();
+      this.remoteTime = this.slaveClock.toString();
 
-     // reset flag to handle next stop
-      this.checkRemoteStop = true;
+      while (this.remoteSyncCounter <= 8) {
+        this.remoteSyncCounter += 1;
+        return;
+      }
 
-      if (this.checkRemoteStart) {
-        if (this.inSync) {
-          //play !
-          const nowTC = Timecode(this.slaveClock.toString(), this.framerate, false);
-          nowTC.add(this.lookAhead);
+      if (!this.blockIncomeMsg) {
+        // reset flag to handle next stop
 
-          const playFrom = this.SMPTEToSeconds(nowTC.toString());
-          const playAt = this.localTime + this.frameToSeconds(this.lookAhead);
-
-          this._onSeek(this.localTime, playFrom);
-          this._onStart(playAt);
-
-          // console.log(`seek to ${playFrom} -- schedule play at ${playAt}`);
-
-          this.checkRemoteStart = false;
-        }
-
-      } else {
-        // console.log("chasing...");
-        if (this.isPlaying === true) {
-          const localPosition = this.transport.getPositionAtTime(this.localTime);
-          const remotePosition = this.SMPTEToSeconds(this.slaveClock.toString());
-          const clockDiff = Math.abs(localPosition - remotePosition);
-
-          if (clockDiff > this.frameToSeconds(this.maxDriftError)) {
-            // console.log("more than 8 frames out of sync...");
-            const nowTC = Timecode(this.slaveClock.toString(), this.framerate, false);
+        if (this.checkRemoteState === 'pause') {
+            //play !
+            const nowTC = Timecode(this.remoteTime, this.framerate, false);
             nowTC.add(this.lookAhead);
 
             const playFrom = this.SMPTEToSeconds(nowTC.toString());
             const playAt = this.localTime + this.frameToSeconds(this.lookAhead);
 
-            // console.log(`seek to ${playFrom} at ${playAt}`);
-            this.isPlaying = false;
-            this._onSeek(playAt, playFrom);
-            setTimeout(() => {this.isPlaying = true}, this.frameToSeconds(this.lookAhead*1000));
+            this._onSeek(this.localTime, playFrom);
+            this._onStart(playAt);
 
+            // console.log(`seek to ${playFrom} -- schedule play at ${playAt}`);
+
+            this.checkRemoteState = 'play';
+
+            // block execution while syncing
+            this.blockIncomeMsg = true;
+            const blockTime = this.frameToSeconds(this.lookAhead);
+            this.timer.setTimeout(() => {
+              this.blockIncomeMsg = false;
+            }, '', `${blockTime}s`);
+
+        } else {
+          // chasing....
+          // computing position delta between local and remote clocks
+          const localPosition = this.transport.getPositionAtTime(this.localTime);
+          const remotePosition = this.SMPTEToSeconds(this.remoteTime);
+          const clockDiff = Math.abs(localPosition - remotePosition);
+
+          if (clockDiff > this.frameToSeconds(this.maxDriftError)) {
+            console.log("more than 8 frames out of sync...");
+            // pause transport and schedule a new start
+            this._onPause(this.localTime);
+            this.checkRemoteState = 'pause';
+            this.remoteSyncCounter = 0;
           } else {
-            // console.log("less than 8 frames out of sync...");
+            // everything is synced and alright
           }
         }
+      } else {
+        // execution is blocked by blockIncomeMsg flag
       }
     } else {
-      // console.log("synchronizing...");
+      // slave clock is not synchronised now
     }
-  }
+}
 
   syncClock() {
     const now = this.getTime();
@@ -169,14 +157,14 @@ export default class MTCReceive {
 
     if (clockDt > acceptedClockDrift) {
       // reset tc flag to handle next start
-      this.checkRemoteStart = true;
 
-      if (this.checkRemoteStop) {
+      if (this.checkRemoteState === 'play') {
         this._onPause(now);
-        // console.log(`pause message now`);
-        this.checkRemoteStop = false;
-        this.inSync = false;
+        // block incoming messages to re-sync clock
+        this.checkRemoteState = 'pause';
+        this.remoteSyncCounter = 0;
       }
+
     } else {
       // console.log("clock is in sync, chasing...");
     }

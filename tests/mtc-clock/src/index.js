@@ -34,21 +34,16 @@ let selectedOutInterface;
 let mtcSend;
 let mtcReceive;
 
-const mtcReceiveParams = {
+const mtcParams = {
   framerate: 25,
   ticksPerFrame: 4,
   maxDriftError: 8,
   lookAhead: 30
 };
 
-const mtcSendParams = {
-  framerate: 25,
-  ticksPerFrame: 4
-};
-
 function createMTCSend(midiInterface) {
   setTransportState('stop');
-  mtcSend = new MTCSend(midiInterface, getTime, transport, mtcReceiveParams);
+  mtcSend = new MTCSend(midiInterface, getTime, transport, mtcParams);
   transport.add(mtcSend);
   updateView();
 }
@@ -61,7 +56,7 @@ function deleteMTCSend() {
 }
 
 function createMTCReceive(midiInterface) {
-  mtcReceive = new MTCReceive(midiInterface, getTime, transport, mtcReceiveParams, {
+  mtcReceive = new MTCReceive(midiInterface, getTime, transport, mtcParams, {
     onStart: (time) => {
       setTransportState('play', time);
     },
@@ -146,6 +141,22 @@ function getTransportState() {
     state = transport.getState().currentState.speed === 0 ? 'pause' : 'play';
   }
   return state
+}
+
+
+// I DON'T UNDERSTAND - TO SEE WITH B
+function renderFramerateSelect() {
+  const mtcFramerateList = [24, 25, 30];
+  if (!mtcReceive && !mtcSend) {
+    return html`
+      <select>
+      ${mtcFramerateList.map((e) => {
+        (e%2 === 1) ? html`<option value="${e}">${e}</option>` : nothing
+      }
+      )}
+      </select>
+    `
+  }
 }
 
 function updateView() {
@@ -240,34 +251,10 @@ function updateView() {
   ` : nothing}
   <br/>
   <sc-text
-    value="mtc receive framerate = ${mtcReceiveParams.framerate}"
+    value="mtc framerate = ${mtcParams.framerate}"
     readonly
   ></sc-text>
-  ${(!mtcReceive && !mtcSend) ? html`
-  <select
-    @change=${e => mtcReceiveParams.framerate = e.target.value}
-    value=${mtcReceiveParams.framerate}
-  >
-    <option value="">please select</option>
-    <option value="24">24</option>
-    <option value="25">25</option>
-    <option value="30">30</option>
-  </select>` : nothing}
-  <br/>
-  <sc-text
-    value="mtc send framerate = ${mtcSendParams.framerate}"
-    readonly
-  ></sc-text>
-  ${(!mtcReceive && !mtcSend) ? html`
-  <select
-    @change=${e => mtcSendParams.framerate = e.target.value}
-    value=${mtcSendParams.framerate}
-  >
-    <option value="">please select</option>
-    <option value="24">24</option>
-    <option value="25">25</option>
-    <option value="30">30</option>
-  </select><br/>` : nothing}
+  ${renderFramerateSelect()}
   <br/>
 `, document.body);
 }
