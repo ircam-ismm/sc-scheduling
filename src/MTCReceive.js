@@ -27,7 +27,7 @@ export default class MTCReceive {
 
     // private variables
     this.localTime = this.getTime(); // updated when a tick is received
-    this.remoteTime = "";
+    this.remoteTime = Timecode(0, this.framerate, false);
     this.checkRemoteState = 'pause';
     this.remoteSyncCounter = 0;
     this.blockIncomeMsg = false;
@@ -57,8 +57,6 @@ export default class MTCReceive {
     this.checkRemoteState = 'pause';
     this.remoteSyncCounter = 0;
     this.blockIncomeMsg = false;
-
-
   }
 
   frameToSeconds(numFrames) {
@@ -92,9 +90,10 @@ export default class MTCReceive {
     if (this.slaveClock.read(msg)) {
 
       this.localTime = this.getTime();
-      this.remoteTime = this.slaveClock.toString();
+      this.remoteTime = Timecode(this.slaveClock.toString(), this.framerate, false);
 
-      while (this.remoteSyncCounter <= 8) {
+      // 8 frames of synchronisation before trusting JZZ remote timecode
+      while (this.remoteSyncCounter < 32) {
         this.remoteSyncCounter += 1;
         return;
       }
@@ -104,10 +103,9 @@ export default class MTCReceive {
 
         if (this.checkRemoteState === 'pause') {
             //play !
-            const nowTC = Timecode(this.remoteTime, this.framerate, false);
-            nowTC.add(this.lookAhead);
+            this.remoteTime.add(this.lookAhead);
 
-            const playFrom = this.SMPTEToSeconds(nowTC.toString());
+            const playFrom = this.SMPTEToSeconds(this.remoteTime.toString());
             const playAt = this.localTime + this.frameToSeconds(this.lookAhead);
 
             this._onSeek(this.localTime, playFrom);
@@ -128,7 +126,7 @@ export default class MTCReceive {
           // chasing....
           // computing position delta between local and remote clocks
           const localPosition = this.transport.getPositionAtTime(this.localTime);
-          const remotePosition = this.SMPTEToSeconds(this.remoteTime);
+          const remotePosition = this.SMPTEToSeconds(this.remoteTime.toString());
           const clockDiff = Math.abs(localPosition - remotePosition);
 
           if (clockDiff > this.frameToSeconds(this.maxDriftError)) {
