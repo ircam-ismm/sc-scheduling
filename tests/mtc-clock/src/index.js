@@ -28,6 +28,8 @@ let midiAccessState = "pending";
 let mtcSend;
 let mtcReceive;
 
+let driftErrorCounter = 0;
+
 const midiDeviceList = {
   input: [],
   output: [],
@@ -57,6 +59,7 @@ function deleteMTCSend() {
 }
 
 function createMTCReceive() {
+  setTransportState('stop');
   mtcReceive = new MTCReceive(getTime, transport, mtcParams, {
     onStart: (time) => {
       setTransportState('play', time);
@@ -68,6 +71,9 @@ function createMTCReceive() {
     onPause: (time) => {
       setTransportState('pause', time);
     },
+    onDrift: () => {
+      driftErrorCounter += 1;
+    }
   });
   // this will call the onTransportEvent method
   transport.add(mtcReceive);
@@ -237,12 +243,23 @@ function updateView() {
     readonly
   ></sc-text>
   <input
-    @change=${e => mtcParams.maxDriftError = parseInt(Math.max(e.target.value,0))}
+    @input=${e => mtcParams.maxDriftError = parseInt(Math.max(e.target.value,0))}
     value="${mtcParams.maxDriftError}"
     type="number"
     min="0"
     ?disabled=${mtcSend || mtcReceive}
   ></input>
+  </br>
+  <sc-text
+    value="drift counter ${driftErrorCounter} reset :"
+    readonly
+  ></sc-text>
+  <sc-bang
+    @input=${e => {
+      driftErrorCounter = 0;
+      updateView();
+    }}
+  ></sc-bang>
 `, document.body);
 }
 

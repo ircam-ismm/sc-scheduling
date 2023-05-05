@@ -14,6 +14,7 @@ export default class MTCReceive {
     this._onStart = transportCallbacks.onStart;
     this._onSeek = transportCallbacks.onSeek;
     this._onPause = transportCallbacks.onPause;
+    this._onDrift = transportCallbacks.onDrift;
 
     // these default variables are the one used by reaper
     this.framerate = params.framerate;
@@ -130,7 +131,8 @@ export default class MTCReceive {
           const clockDiff = Math.abs(localPosition - remotePosition);
 
           if (clockDiff > this.frameToSeconds(this.maxDriftError)) {
-            console.log("more than 8 frames out of sync...");
+            console.log(`more than ${this.maxDriftError} frames out of sync...`);
+            this._onDrift();
             // pause transport and schedule a new start
             this._onPause(this.localTime);
             this.checkRemoteState = 'pause';
@@ -151,7 +153,7 @@ export default class MTCReceive {
     const now = this.getTime();
     const clockDt = now - this.localTime;
     // time between 2 ticks
-    const acceptedClockDrift = this.frameToSeconds(1);
+    const acceptedClockDrift = this.frameToSeconds(this.lookAhead);
 
     if (clockDt > acceptedClockDrift) {
       // reset tc flag to handle next start
