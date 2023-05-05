@@ -6,7 +6,7 @@ import Timecode from 'smpte-timecode';
 process.version = '16.12.0';
 
 export default class MTCReceive {
-  constructor(midiInterface, getTimeFunction, transport, params, transportCallbacks) {
+  constructor(getTimeFunction, transport, params, transportCallbacks) {
     // function dependencies
     this.getTime = getTimeFunction;
     this.transport = transport;
@@ -36,7 +36,7 @@ export default class MTCReceive {
 
     // Init JZZ stuff
     this.input = JZZ().or('Cannot start MIDI engine!')
-      .openMidiIn(midiInterface).or('MIDI-In: Cannot open!')
+      .openMidiIn(params.inputInterface).or('MIDI-In: Cannot open!')
       .and(function() { console.log('MIDI-In:', this.name()); });
     this.slaveClock = JZZ.SMPTE(this.framerate,0,0,0);
     this.receiver = JZZ().Widget({ _receive: this.receiveTC });
@@ -151,7 +151,7 @@ export default class MTCReceive {
     const now = this.getTime();
     const clockDt = now - this.localTime;
     // time between 2 ticks
-    const acceptedClockDrift = this.frameToSeconds(this.maxDriftError);
+    const acceptedClockDrift = this.frameToSeconds(1);
 
     if (clockDt > acceptedClockDrift) {
       // reset tc flag to handle next start

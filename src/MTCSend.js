@@ -5,7 +5,7 @@ import NanoTimer from 'nanotimer';
 process.version = '16.12.0';
 
 export default class MTCSend {
-  constructor(midiInterface, getTimeFunction, transport, params) {
+  constructor(getTimeFunction, transport, params) {
     // function dependencies
     this.getTime = getTimeFunction;
     this.transport = transport;
@@ -16,7 +16,7 @@ export default class MTCSend {
 
     // JZZ init
     this.out = JZZ().or('Cannot start MIDI engine!')
-      .openMidiOut(midiInterface).or('MIDI-Out: Cannot open!')
+      .openMidiOut(params.outputInterface).or('MIDI-Out: Cannot open!')
       .and(function() { console.log('MIDI-Out:', this.name()); });
 
     this.masterClock = JZZ().SMPTE(this.framerate,0,0,0);

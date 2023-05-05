@@ -25,25 +25,26 @@ const transport = new Transport(scheduler);
 
 let midiAccessState = "pending";
 
-let inputDeviceList = [];
-let outputDeviceList = [];
-
-let selectedInInterface;
-let selectedOutInterface;
-
 let mtcSend;
 let mtcReceive;
+
+const midiDeviceList = {
+  input: [],
+  output: [],
+}
 
 const mtcParams = {
   framerate: 25,
   ticksPerFrame: 4,
   maxDriftError: 8,
-  lookAhead: 30
+  lookAhead: 30,
+  inputInterface: '',
+  outputInterface: '',
 };
 
-function createMTCSend(midiInterface) {
+function createMTCSend() {
   setTransportState('stop');
-  mtcSend = new MTCSend(midiInterface, getTime, transport, mtcParams);
+  mtcSend = new MTCSend(getTime, transport, mtcParams);
   transport.add(mtcSend);
   updateView();
 }
@@ -55,8 +56,8 @@ function deleteMTCSend() {
   setTransportState('stop');
 }
 
-function createMTCReceive(midiInterface) {
-  mtcReceive = new MTCReceive(midiInterface, getTime, transport, mtcParams, {
+function createMTCReceive() {
+  mtcReceive = new MTCReceive(getTime, transport, mtcParams, {
     onStart: (time) => {
       setTransportState('play', time);
     },
@@ -83,14 +84,14 @@ function deleteMTCReceive() {
 function midiSuccessAccess(webmidi) {
   midiAccessState = "success";
 
-  webmidi.outputs.forEach(function(port) { outputDeviceList.push(port.name) });
-  webmidi.inputs.forEach(function(port) { inputDeviceList.push(port.name) });
+  webmidi.outputs.forEach(function(port) { midiDeviceList.output.push(port.name) });
+  webmidi.inputs.forEach(function(port) { midiDeviceList.input.push(port.name) });
   JZZ.close();
 
 
   // JZZ init
-  selectedInInterface = inputDeviceList[0];
-  selectedOutInterface = outputDeviceList[0];
+  mtcParams.inputInterface = midiDeviceList.input[0];
+  mtcParams.outputInterface = midiDeviceList.output[0];
 
   updateView();
 }
@@ -143,22 +144,6 @@ function getTransportState() {
   return state
 }
 
-
-// I DON'T UNDERSTAND - TO SEE WITH B
-function renderFramerateSelect() {
-  const mtcFramerateList = [24, 25, 30];
-  if (!mtcReceive && !mtcSend) {
-    return html`
-      <select>
-      ${mtcFramerateList.map((e) => {
-        (e%2 === 1) ? html`<option value="${e}">${e}</option>` : nothing
-      }
-      )}
-      </select>
-    `
-  }
-}
-
 function updateView() {
   render(html`
   <h2>js-prototyping-template</h2>
@@ -192,70 +177,72 @@ function updateView() {
     value="active MTC Receive"
     readonly
   ></sc-text>
-  ${!mtcSend ? html`
-    <sc-toggle
-    @change="${(e) => {
-      if (e.detail.value === true) {
-        createMTCReceive(selectedInInterface);
-      } else {
-        deleteMTCReceive();
-      }
-    }}"
-    ></sc-toggle>
-  ` : nothing}
+  <sc-toggle
+    @change=${(e) => e.detail.value ? createMTCReceive() : deleteMTCReceive()}
+    ?disabled=${mtcSend}
+  ></sc-toggle>
   </br>
   <sc-text
     value="active MTC Send"
     readonly
   ></sc-text>
-  ${!mtcReceive ? html`
-    <sc-toggle
-    @change="${(e) => {
-      if (e.detail.value === true) {
-        createMTCSend(selectedOutInterface);
-      } else {
-        deleteMTCSend();
-      }
-    }}"
-    ></sc-toggle>` : nothing}
+  <sc-toggle
+    @change=${(e) => e.detail.value ? createMTCSend() : deleteMTCSend()}
+    ?disabled=${mtcReceive}
+  ></sc-toggle>
   </br>
   <sc-text
-    value="input device = ${selectedInInterface}"
+    value="input device"
     readonly
   ></sc-text>
-  ${(!mtcReceive && !mtcSend) ? html`
-    <select
-      @change=${e => selectedInInterface = e.target.value}
-    >
-    <option>please select</option>
-    ${Object.keys(inputDeviceList).map(name => {
-      return html`<option value="${inputDeviceList[name]}">${inputDeviceList[name]}</option>`;
+  <select
+    @change=${e => mtcParams.inputInterface = e.target.value}
+    ?disabled=${mtcSend || mtcReceive}
+  >
+    ${Object.keys(midiDeviceList.input).map(name => {
+      return html`<option value="${midiDeviceList.input[name]}" ?selected="${name === mtcParams.inputInterface}">${midiDeviceList.input[name]}</option>`;
     })}
-    </select>
-  ` : nothing}
+  </select>
   <br/>
   <sc-text
-    value="output device = ${selectedOutInterface}"
+    value="output device"
     readonly
   ></sc-text>
-  ${(!mtcReceive && !mtcSend) ? html`
-    <select
-      @change=${e => selectedOutInterface = e.target.value}
-    >
-    <option>please select</option>
-    ${Object.keys(outputDeviceList).map(name => {
+  <select
+    @change=${e => mtcParams.outputInterface = e.target.value}
+    ?disabled=${mtcSend || mtcReceive}
+  >
+    ${Object.keys(midiDeviceList.output).map(name => {
+      return html`<option value="${midiDeviceList.output[name]}" ?selected="${name === mtcParams.outputInterface}">${midiDeviceList.output[name]}</option>`;
+    })}
+  </select>
+  <br/>
+  <sc-text
+    value="mtc framerate"
+    readonly
+  ></sc-text>
+  <select
+    @change=${e => mtcParams.framerate = parseInt(e.target.value)}
+    ?disabled=${mtcSend || mtcReceive}
+  >
+    ${[24, 25, 30].map(framerate => {
       return html`
-        <option value="${outputDeviceList[name]}">${outputDeviceList[name]}</option>`;
+        <option value="${framerate}" ?selected="${framerate === mtcParams.framerate}">${framerate}</option>
+      `;
     })}
-    </select>
-  ` : nothing}
+  </select>
   <br/>
   <sc-text
-    value="mtc framerate = ${mtcParams.framerate}"
+    value="max drift error in frame"
     readonly
   ></sc-text>
-  ${renderFramerateSelect()}
-  <br/>
+  <input
+    @change=${e => mtcParams.maxDriftError = parseInt(Math.max(e.target.value,0))}
+    value="${mtcParams.maxDriftError}"
+    type="number"
+    min="0"
+    ?disabled=${mtcSend || mtcReceive}
+  ></input>
 `, document.body);
 }
 
