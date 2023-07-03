@@ -2,7 +2,7 @@ import hrtime from 'browser-hrtime';
 import JZZ from 'jzz';
 import NanoTimer from 'nanotimer';
 
-process.version = '16.12.0';
+// process.version = '16.12.0';
 
 export default class MTCSend {
   constructor(getTimeFunction, transport, params) {

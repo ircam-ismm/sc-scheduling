@@ -14,8 +14,8 @@ const ENV = process.env.ENV || 'default';
 const config = getConfig(ENV);
 const server = new Server();
 
-import MTCReceive from './MTCReceive.js';
-import MTCSend from './MTCSend.js';
+// import MTCReceive from '../../../../src/MTCReceive.js';
+// import MTCSend from '../../../../src/MTCSend.js';
 
 // html template and static files (in most case, this should not be modified)
 server.templateEngine = { compile };
@@ -196,9 +196,8 @@ console.log(`
       }
     });
 
-
-    const mtcSend = new MTCSend('IAC Driver Bus 1', getTime, clock);
-    clock.add(mtcSend);
+    // const mtcSend = new MTCSend('IAC Driver Bus 1', getTime, clock);
+    // clock.add(mtcSend);
 
     // const mtcReceive = new MTCReceive('IAC Driver Bus 1', getTime, clock, {
     //   onStart: (time) => {

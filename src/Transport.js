@@ -198,13 +198,11 @@ export default class Transport {
     child.advanceTime = (currentTime, audioTime, dt) => {
       if (this._eventQueue.state.speed > 0) {
         const position = this._eventQueue.getPositionAtTime(currentTime);
-        console.log('called engine at', position, currentTime);
         const nextPosition = oldAdvanceTime.call(child, position, audioTime, dt);
 
         // make sure the engine does not remove itself from the scheduler
         if (Number.isFinite(nextPosition)) {
           const nextTime = this._eventQueue.getTimeAtPosition(nextPosition);
-          console.log('reschedule engine at', nextPosition, nextTime);
           return nextTime;
         } else  if (nextPosition === Number.POSITIVE_INFINITY) {
           return Infinity;
