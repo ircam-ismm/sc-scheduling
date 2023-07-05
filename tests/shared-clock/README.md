@@ -31,7 +31,7 @@ sudo PORT=80 npm run start
 - [ ] seek: two editable number boxes with up/down buttons (min, sec)
 - [ ] only start / stop ?
 
-### scores 
+### scores
 
 - [ ] online edit score client
 - [ ] define some kind of score (cue, jump)
@@ -40,8 +40,6 @@ sudo PORT=80 npm run start
 ## License
 
 BSD-3-Clause
-
-
 
 ## Full Network Startup
 

@@ -9,6 +9,9 @@
   "license": "BSD-3-Clause",
   "main": "./src/index.js",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/ircam-ismm/sc-scheduling"
@@ -26,7 +29,7 @@
     "test": "mocha"
   },
   "devDependencies": {
-    "@ircam/sc-gettime": "^1.0.0",
+    "@ircam/sc-gettime": "^1.0.1",
     "browser-hrtime": "^1.1.8",
     "chai": "^4.3.7",
     "jzz": "^1.6.1",
