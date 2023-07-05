@@ -2,7 +2,13 @@ import hrtime from 'browser-hrtime';
 import JZZ from 'jzz';
 import NanoTimer from 'nanotimer';
 
-// process.version = '16.12.0';
+/**
+ * @warning
+ * MTCReceive and MTCSend are not published yet and will probably be moved
+ * away from this repository
+ */
+
+process.version = '16.12.0';
 
 export default class MTCSend {
   constructor(getTimeFunction, transport, params) {

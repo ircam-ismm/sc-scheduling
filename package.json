@@ -1,21 +1,33 @@
 {
   "name": "@ircam/sc-scheduling",
   "version": "0.0.0",
-  "description": "",
-  "type": "module",
+  "description": "Set of classes for advanced audio scheduling in Node.js and the browser",
   "author": [
     "Benjamin Matuszewski",
     "Norbert Schnell"
   ],
   "license": "BSD-3-Clause",
-  "exports": {
-    ".": "./src/index.js"
+  "main": "./src/index.js"
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ircam-ismm/sc-scheduling"
   },
+  "bugs": {
+    "url": "https://github.com/ircam-ismm/sc-scheduling/issues"
+  },
+  "homepage": "https://ircam-ismm.github.io/sc-scheduling/",
+  "keywords": [
+    "web audio",
+    "audio"
+    "scheduling",
+  ],
   "scripts": {
     "test": "mocha"
   },
   "devDependencies": {
     "@ircam/sc-gettime": "^1.0.0",
+    "browser-hrtime": "^1.1.8",
     "chai": "^4.3.7",
     "jzz": "^1.6.1",
     "mocha": "^10.1.0",
@@ -25,7 +37,6 @@
   },
   "dependencies": {
     "@ircam/sc-utils": "^1.0.1",
-    "browser-hrtime": "^1.1.8",
     "clone-deep": "^4.0.1"
   }
 }

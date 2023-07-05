@@ -1,7 +1,8 @@
 .babelrc
 .editorconfig
-TODO.md
 
 docs
 tests
-examples
+
+MTCReceive.js
+MTCSend.js

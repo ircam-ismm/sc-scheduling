@@ -3,6 +3,12 @@ import JZZ from 'jzz';
 import NanoTimer from 'nanotimer';
 import Timecode from 'smpte-timecode';
 
+/**
+ * @warning
+ * MTCReceive and MTCSend are not published yet and will probably be moved
+ * away from this repository
+ */
+
 process.version = '16.12.0';
 
 export default class MTCReceive {

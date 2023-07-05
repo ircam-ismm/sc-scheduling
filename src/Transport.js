@@ -1,8 +1,9 @@
-import TransportEventQueue from './TransportEventQueue.js';
-import { quantize } from './utils.js';
 import cloneDeep from 'clone-deep';
 
+import { quantize } from './utils.js';
 import Scheduler from './Scheduler.js';
+import TransportEventQueue from './TransportEventQueue.js';
+
 
 export default class Transport {
   constructor(scheduler) {
