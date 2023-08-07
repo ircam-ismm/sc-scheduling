@@ -19,7 +19,7 @@ const transport = new Transport(scheduler);
 
 const player = {
   onTransportEvent(event, position, audioTime, dt) {
-    // such default should be quite good for any engine that rely on an advanceTime
+    // such default should be quite good for any engine that rely only an advanceTime
     // method (e.g. Granular engine)
     return event.speed > 0 ? position : Infinity;
   }
@@ -46,8 +46,13 @@ transport.seek(5, 0);
 - [ ] Documentation
 - [ ] Harmonize semantics of `onTransportEvent` and `advanceTime` return values:
   - number (respectively >= or strictly >) to input param, schedule next call
-  - ±Infinity keep in scheduler
+  - for advance it can be handy to return the same time, e.g. to play a chord,
+    maybe define some max number of same time event before the scheduler drop the engine? this could be a variable
+  - rename `onTransportEvent` to `onControlEvent` -> should be semantically correct for `Timeline` too later
+  - ±Infinity keep in scheduler (review scheduling queue)
   - else remove from schdeuler
+
+
 
 ## Notes
 

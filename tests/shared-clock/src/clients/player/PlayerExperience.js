@@ -33,7 +33,6 @@ class PlayerExperience extends AbstractExperience {
     this.transport = await this.client.stateManager.attach('transport');
 
     this.scheduler = new Scheduler(() => this.sync.getSyncTime());
-
     this.clock = new Transport(this.scheduler);
     this.clock.setState(this.transport.get('transportState'));
 
