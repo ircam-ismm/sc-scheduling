@@ -1,5 +1,4 @@
-//
-const queueTimeKey = Symbol.for('sc-scheduling-queue-time');
+import { priorityQueueTimeKey } from './utils.js';
 
 // works by reference
 function swap(arr, i1, i2) {
@@ -91,7 +90,7 @@ class PriorityQueue {
    */
   get time() {
     if (this._currentLength > 1) {
-      return this._heap[1][queueTimeKey];
+      return this._heap[1][priorityQueueTimeKey];
     }
 
     return Infinity;
@@ -145,7 +144,7 @@ class PriorityQueue {
     let parentIndex = Math.floor(index / 2);
     let parent = this._heap[parentIndex];
 
-    while (parent && this._isHigher(entry[queueTimeKey], parent[queueTimeKey])) {
+    while (parent && this._isHigher(entry[priorityQueueTimeKey], parent[priorityQueueTimeKey])) {
       swap(this._heap, index, parentIndex);
 
       index = parentIndex;
@@ -168,14 +167,15 @@ class PriorityQueue {
     let child1 = this._heap[c1index];
     let child2 = this._heap[c2index];
 
-    while ((child1 && this._isLower(entry[queueTimeKey], child1[queueTimeKey])) ||
-           (child2 && this._isLower(entry[queueTimeKey], child2[queueTimeKey])))
+    while ((child1 && this._isLower(entry[priorityQueueTimeKey], child1[priorityQueueTimeKey])) ||
+           (child2 && this._isLower(entry[priorityQueueTimeKey], child2[priorityQueueTimeKey])))
     {
       // swap with the minimum child
       let targetIndex;
 
       if (child2)
-        targetIndex = this._isHigher(child1[queueTimeKey], child2[queueTimeKey]) ? c1index : c2index;
+        targetIndex = this._isHigher(child1[priorityQueueTimeKey], child2[priorityQueueTimeKey])
+          ? c1index : c2index;
       else
         targetIndex = c1index;
 
@@ -214,13 +214,13 @@ class PriorityQueue {
     // Using Number.isFinite also allows us to handle NaN gracefully
     if (!Number.isFinite(time)) {
       if (Math.abs(time) !== Infinity) {
-        console.warn(`PriorityQueue: entry`, entry, `inserted with NaN time: "${time}" (overriden to Infinity). This probably shows an error in your implementation.`);
+        console.warn(`PriorityQueue: entry`, JSON.stringify(entry), `inserted with NaN time: "${time}" (overriden to Infinity). This probably shows an error in your implementation.`);
       }
 
       time = this.reverse ? -Infinity : Infinity;
     }
 
-    entry[queueTimeKey] = time;
+    entry[priorityQueueTimeKey] = time;
     // add the new entry at the end of the heap
     this._heap[this._currentLength] = entry;
     // bubble it up
@@ -240,11 +240,11 @@ class PriorityQueue {
     const index = this._heap.indexOf(entry);
 
     if (index !== -1) {
-      entry[queueTimeKey] = time;
+      entry[priorityQueueTimeKey] = time;
       // define if the entry should be bubbled up or down
       const parent = this._heap[Math.floor(index / 2)];
 
-      if (parent && this._isHigher(time, parent[queueTimeKey]))
+      if (parent && this._isHigher(time, parent[priorityQueueTimeKey]))
         this._bubbleUp(index);
       else
         this._bubbleDown(index);
@@ -269,10 +269,6 @@ class PriorityQueue {
       if (index === lastIndex) {
         // remove the element from heap
         this._heap[lastIndex] = undefined;
-        // update current length
-        this._currentLength = lastIndex;
-
-        return this.time;
       } else {
         // swap with the last element of the heap
         swap(this._heap, index, lastIndex);
@@ -286,13 +282,15 @@ class PriorityQueue {
           const entry = this._heap[index];
           const parent = this._heap[Math.floor(index / 2)];
 
-          if (parent && this._isHigher(entry[queueTimeKey], parent[queueTimeKey]))
+          if (parent && this._isHigher(entry[priorityQueueTimeKey], parent[priorityQueueTimeKey]))
             this._bubbleUp(index);
           else
             this._bubbleDown(index);
         }
       }
 
+      // delete symbol key
+      delete entry[priorityQueueTimeKey];
       // update current length
       this._currentLength = lastIndex;
     }
@@ -304,6 +302,11 @@ class PriorityQueue {
    * Clear the queue.
    */
   clear() {
+    // clear symbol from each entry
+    for (let i = 1; i < this._currentLength; i++) {
+      delete this._heap[i][priorityQueueTimeKey];
+    }
+
     this._currentLength = 1;
     this._heap = new Array(this._heap.length);
   }

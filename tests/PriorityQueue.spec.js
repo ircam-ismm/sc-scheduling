@@ -1,12 +1,13 @@
 import { assert } from 'chai';
 
+import { priorityQueueTimeKey } from '../src/utils.js';
 import PriorityQueue from '../src/PriorityQueue.js';
 
 // const queueSize = 20;
 const queueSize = 1e4;
 
-describe('# PriorityQueue (smoke testing)', () => {
-  it(`## .add(entry, time) / remove(entry)`, () => {
+describe('# PriorityQueue - public API [smoke testing]', () => {
+  it(`.add(entry, time) / remove(entry)`, () => {
     const priorityQueue = new PriorityQueue(queueSize);
 
     for (let i = 0; i < queueSize; i++) {
@@ -30,7 +31,7 @@ describe('# PriorityQueue (smoke testing)', () => {
     assert.equal(priorityQueue.head, undefined);
   });
 
-  it(`## .move(entry, time)`, () => {
+  it(`.move(entry, time)`, () => {
     const priorityQueue = new PriorityQueue(queueSize);
 
     let stack = new Map();
@@ -67,7 +68,7 @@ describe('# PriorityQueue (smoke testing)', () => {
     assert.equal(priorityQueue.head, undefined);
   });
 
-  it(`## .has(entry)`, () => {
+  it(`.has(entry)`, () => {
     const priorityQueue = new PriorityQueue(100);
     const a = {};
     const b = {};
@@ -77,7 +78,7 @@ describe('# PriorityQueue (smoke testing)', () => {
     assert.equal(priorityQueue.has(b), false);
   });
 
-  it(`## .reverse = true`, () => {
+  it(`.reverse = true`, () => {
     const priorityQueue = new PriorityQueue(queueSize);
 
     for (let i = 0; i < queueSize; i++) {
@@ -106,7 +107,6 @@ describe('# PriorityQueue (smoke testing)', () => {
 
 describe(`PriorityQueue - internals`, () => {
   it('store queue time has symbol', () => {
-    const queueTimeKey = Symbol.for('sc-scheduling-queue-time');
     const priorityQueue = new PriorityQueue(10);
 
     const obj = { a: true };
@@ -121,8 +121,8 @@ describe(`PriorityQueue - internals`, () => {
       }
     }
     // except if we really want to
-    assert.equal(obj[queueTimeKey], 0.1);
-    assert.deepEqual(Object.getOwnPropertySymbols(obj), [queueTimeKey]);
+    assert.equal(obj[priorityQueueTimeKey], 0.1);
+    assert.deepEqual(Object.getOwnPropertySymbols(obj), [priorityQueueTimeKey]);
   });
 
   it(`allow +Infinity to be stored in the queue`, () => {

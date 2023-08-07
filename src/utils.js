@@ -13,3 +13,9 @@
 export function quantize(val, precision = 1e-9) {
   return Math.round(val / precision) * precision;
 }
+
+export const identity = t => t;
+
+// symbols
+export const schedulerKey = Symbol.for('sc-scheduling:scheduler');
+export const priorityQueueTimeKey = Symbol.for('sc-scheduling:queue-time');

@@ -1,0 +1,126 @@
+<p><a name="Scheduler"></a></p>
+<h2 id="scheduler">Scheduler</h2>
+<p><strong>Kind</strong>: global class  </p>
+<ul>
+<li><a href="#Scheduler">Scheduler</a><ul>
+<li><a href="#new_Scheduler_new">new Scheduler(getTimeFunction, [options])</a></li>
+<li><a href="#Scheduler+period">.period</a> : <code>number</code></li>
+<li><a href="#Scheduler+lookahead">.lookahead</a> : <code>number</code></li>
+<li><a href="#Scheduler+currentTime">.currentTime</a> : <code>number</code></li>
+<li><a href="#Scheduler+audioTime">.audioTime</a> : <code>number</code></li>
+<li><a href="#Scheduler+has">.has(engine)</a> ⇒ <code>boolean</code></li>
+<li><a href="#Scheduler+defer">.defer(callback, time)</a></li>
+<li><a href="#Scheduler+add">.add()</a></li></ul></li>
+</ul>
+<p><a name="new_Scheduler_new"></a></p>
+<h3 id="newschedulergettimefunctionoptions">new Scheduler(getTimeFunction, [options])</h3>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>getTimeFunction</td>
+<td><code>function</code></td>
+<td></td>
+<td>A function which return a time in seconds  that will define the timeline of the scheduler.</td>
+</tr>
+<tr>
+<td>[options]</td>
+<td><code>object</code></td>
+<td><code>{}</code></td>
+<td>Options of the scheduler</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong>  </p>
+<pre><code class="js language-js">import { Scheduler } from 'waves-masters';
+
+const getTime = () =&gt; new Date().getTime() / 1000;
+const scheduler = new Scheduler(getTime);
+
+const myEngine = {
+  advanceTime(currentTime) {
+    console.log(currentTime);
+    // ask to be called in 1 second
+    return time + 1;
+  }
+}
+
+const startTime = Math.ceil(getTime());
+scheduler.add(myEngine, startTime);
+</code></pre>
+<p><a name="Scheduler+period"></a></p>
+<h3 id="schedulerperiodc8c">scheduler.period : <code>number</code></h3>
+<p>Period at which the scheduler checks for events, in seconds.
+Throws if negative or greater than lookahead.</p>
+<p><strong>Kind</strong>: instance property of <a href="#Scheduler"><code>Scheduler</code></a><br />
+<a name="Scheduler+lookahead"></a></p>
+<h3 id="schedulerlookaheadc10c">scheduler.lookahead : <code>number</code></h3>
+<p>Lookahead duration in seconds.
+Throws if negative or lower than period.</p>
+<p><strong>Kind</strong>: instance property of <a href="#Scheduler"><code>Scheduler</code></a><br />
+<a name="Scheduler+currentTime"></a></p>
+<h3 id="schedulercurrenttimec12c">scheduler.currentTime : <code>number</code></h3>
+<p>Scheduler current logical time.</p>
+<p><strong>Kind</strong>: instance property of <a href="#Scheduler"><code>Scheduler</code></a><br />
+<a name="Scheduler+audioTime"></a></p>
+<h3 id="scheduleraudiotimec14c">scheduler.audioTime : <code>number</code></h3>
+<p>Scheduler current audio time according to <code>currentTime</code></p>
+<p><strong>Kind</strong>: instance property of <a href="#Scheduler"><code>Scheduler</code></a><br />
+<a name="Scheduler+has"></a></p>
+<h3 id="schedulerhasenginec16c">scheduler.has(engine) ⇒ <code>boolean</code></h3>
+<p>Check whether a given engine has been added to this scheduler</p>
+<p><strong>Kind</strong>: instance method of <a href="#Scheduler"><code>Scheduler</code></a>  </p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>engine</td>
+<td><code>object</code></td>
+<td>Engine to test.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="Scheduler+defer"></a></p>
+<h3 id="schedulerdefercallbacktime">scheduler.defer(callback, time)</h3>
+<p>Schedule a function at a given time. If time is in the past, is executed immediately.</p>
+<p><strong>Kind</strong>: instance method of <a href="#Scheduler"><code>Scheduler</code></a>  </p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>callback</td>
+<td><code>function</code></td>
+<td>Callback function to schedule.</td>
+</tr>
+<tr>
+<td>time</td>
+<td><code>number</code></td>
+<td>Time at which the callback should be scheduled.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="Scheduler+add"></a></p>
+<h3 id="scheduleradd">scheduler.add()</h3>
+<p>Add a time engine to the scheduler. A valid "time engine" can be any object that implements
+an <code>advanceTime(currentTime, audioTime, dt)</code> method. If the engine has already been added
+to the scheduler, acts as <code>reset(engine, time)</code></p>
+<p><strong>Kind</strong>: instance method of <a href="#Scheduler"><code>Scheduler</code></a>  </p>
