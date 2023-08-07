@@ -12,7 +12,7 @@ describe('# PriorityQueue (smoke testing)', () => {
     for (let i = 0; i < queueSize; i++) {
       const obj = {};
       const time = Math.random() * 1000;
-      priorityQueue.insert(obj, time);
+      priorityQueue.add(obj, time);
     }
 
     let lastTime = -Infinity;
@@ -38,7 +38,7 @@ describe('# PriorityQueue (smoke testing)', () => {
     for (let i = 0; i < queueSize; i++) {
       const obj = {};
       const time = Math.random() * 1000;
-      priorityQueue.insert(obj, time);
+      priorityQueue.add(obj, time);
       stack.set(obj, time);
     }
 
@@ -71,7 +71,7 @@ describe('# PriorityQueue (smoke testing)', () => {
     const priorityQueue = new PriorityQueue(100);
     const a = {};
     const b = {};
-    priorityQueue.insert(a, 1);
+    priorityQueue.add(a, 1);
 
     assert.equal(priorityQueue.has(a), true);
     assert.equal(priorityQueue.has(b), false);
@@ -83,7 +83,7 @@ describe('# PriorityQueue (smoke testing)', () => {
     for (let i = 0; i < queueSize; i++) {
       const obj = {};
       const time = Math.random() * 1000;
-      priorityQueue.insert(obj, time);
+      priorityQueue.add(obj, time);
     }
 
     priorityQueue.reverse = true;
@@ -110,7 +110,7 @@ describe(`PriorityQueue - internals`, () => {
     const priorityQueue = new PriorityQueue(10);
 
     const obj = { a: true };
-    priorityQueue.insert(obj, 0.1);
+    priorityQueue.add(obj, 0.1);
 
     // not visible for client code
     assert.equal(Object.keys(obj).length, 1);
@@ -132,10 +132,10 @@ describe(`PriorityQueue - internals`, () => {
     for (let i = 0; i < queueSize - 1; i++) {
       const obj = {};
       const time = Math.random() * 1000;
-      priorityQueue.insert(obj, time);
+      priorityQueue.add(obj, time);
     }
 
-    priorityQueue.insert({}, +Infinity);
+    priorityQueue.add({}, +Infinity);
 
     let lastTime = -Infinity;
 
@@ -167,10 +167,10 @@ describe(`PriorityQueue - internals`, () => {
     for (let i = 0; i < queueSize - 1; i++) {
       const obj = {};
       const time = Math.random() * 1000;
-      priorityQueue.insert(obj, time);
+      priorityQueue.add(obj, time);
     }
 
-    priorityQueue.insert({}, -Infinity);
+    priorityQueue.add({}, -Infinity);
 
     let lastTime = -Infinity;
 
@@ -202,10 +202,10 @@ describe(`PriorityQueue - internals`, () => {
     for (let i = 0; i < queueSize - 1; i++) {
       const obj = {};
       const time = Math.random() * 1000;
-      priorityQueue.insert(obj, time);
+      priorityQueue.add(obj, time);
     }
 
-    priorityQueue.insert({ nanTime: true }, NaN);
+    priorityQueue.add({ nanTime: true }, NaN);
 
     let lastTime = -Infinity;
 

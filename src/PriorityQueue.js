@@ -209,7 +209,7 @@ class PriorityQueue {
    * @param {Number} time - Time at which the entry should be orderer.
    * @returns {Number} - Time of the first entry in the heap.
    */
-  insert(entry, time) {
+  add(entry, time) {
     // ±Infinity should always be at the end of the queue, disregarding its sign.
     // Using Number.isFinite also allows us to handle NaN gracefully
     if (!Number.isFinite(time)) {
