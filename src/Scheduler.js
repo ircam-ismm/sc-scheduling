@@ -8,11 +8,17 @@ import {
 } from './utils.js';
 
 /**
+ * The `Scheduler` interface implement a lookahead scheduler that can be used to
+ * schedule events in an arbitrary timeline.
+ * It aims at finding a tradeoff between time precision, real-time responsiveness
+ * and the weaknesses of the native timers (i.e.setTimeout and setInterval)
+ *
+ * For an in-depth explaination of the pattern, see @link{https://web.dev/audio-scheduling/}
  *
  * ## Notes
  *
- * 1. To mitigate errors introduced by setTimeout (which is around 1ms), event scheduled
- * within a 10ms from now are executed synchronously, e.g.:
+ * 1. To mitigate errors introduced by setTimeout (which is around 1ms), events scheduled
+ * within a 10ms window from current time are executed synchronously, e.g.:
  * ```
  * const now = getTime();
  * scheduler.add(engine, now);
@@ -48,12 +54,10 @@ import {
  * const getTime = () => new Date().getTime() / 1000;
  * const scheduler = new Scheduler(getTime);
  *
- * const myEngine = {
- *   advanceTime(currentTime) {
- *     console.log(currentTime);
- *     // ask to be called in 1 second
- *     return time + 1;
- *   }
+ * const myEngine = (currentTime) {
+ *   console.log(currentTime);
+ *   // ask to be called back in 1 second
+ *   return currentTime + 1;
  * }
  *
  * const startTime = Math.ceil(getTime());
@@ -70,6 +74,7 @@ class Scheduler {
     lookahead = 0.1,
     queueSize = 1e3,
     currentTimeToAudioTimeFunction = identity,
+    maxEngineRecursion = 100,
     verbose = false,
   } = {}) {
     if (!isFunction(getTimeFunction)) {
@@ -85,11 +90,14 @@ class Scheduler {
     this._period = -Infinity; // dummy values so we don't fall into error traps at initialization
     this._lookahead = +Infinity; // dummy values so we don't fall into error traps at initialization
     this._currentTimeToAudioTimeFunction = currentTimeToAudioTimeFunction;
+    // number of time an engine can be called with the same time before being discarded
+    this._maxEngineRecursion = maxEngineRecursion;
     this._verbose = verbose;
     // bookkeeping internal value
     this._currentTime = null;
     this._nextTime = Infinity;
     this._timeoutId = null;
+    this._engineTimeCounterMap = new Map();
 
     // init default or user-defined values
     this.period = period;
@@ -232,6 +240,7 @@ class Scheduler {
 
     engine[schedulerInstance] = this;
     this._engines.add(engine);
+    this._engineTimeCounterMap.set(engine, { time: null, counter: 0 });
 
     const nextTime = this._queue.add(engine, time);
     // use a minimum bound of 0 because the the engine could be added before the next tick time
@@ -276,6 +285,7 @@ class Scheduler {
 
     // remove from array and queue
     this._engines.delete(engine);
+    this._engineTimeCounterMap.delete(engine);
     const nextTime = this._queue.remove(engine);
 
     // a minimum bound of this.period is right, as there is now way the next time
@@ -292,6 +302,7 @@ class Scheduler {
 
     this._queue.clear();
     this._engines.clear();
+    this._engineTimeCounterMap.clear();
     // just stops the scheduler
     this._resetTick(Infinity, false);
   }
@@ -312,14 +323,26 @@ class Scheduler {
       const dt = time - currentTime;
       // retreive the engine and advance its time
       const engine = this._queue.head;
-      const nextTime = engine(time, audioTime, dt);
+      const engineInfos = this._engineTimeCounterMap.get(engine);
 
-      // @todo quantize nextTime
+      let nextTime = engine(time, audioTime, dt);
 
-      // @todo - handle nextTime === time;
-      // we don't to enforce nextTime > time because it can handy for e.g. playing
-      // chords, but this a common source of problems in development, when an issue
-      // here completely freeze the browser...
+      // Prevent infinite loops:
+      // We don't to enforce that nextTime > time because it can be handy for e.g.
+      // playing chords, but this a common source of problems in development, when
+      // such issue completely freezes the browser...
+      if (nextTime === engineInfos.time) {
+        engineInfos.counter += 1;
+
+        if (engineInfos.counter >= this._maxEngineRecursion) {
+          console.warn(`[sc-scheduling] maxEngineRecursion (${this._maxEngineRecursion}) for the same engine at the same time: ${nextTime} has been reached. This is generally due to a implementation issue, thus the engine has been discarded. If you know what you are doing, you should consider increasing the maxEngineRecursion option.`);
+          nextTime = Infinity;
+        }
+      } else {
+        engineInfos.time = nextTime;
+        engineInfos.counter = 1;
+      }
+
       if (isNumber(nextTime)) {
         this._queue.move(engine, nextTime);
       } else {
