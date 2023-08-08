@@ -1,4 +1,4 @@
-import { priorityQueueTimeKey } from './utils.js';
+import { priorityQueueTime } from './utils.js';
 
 // works by reference
 function swap(arr, i1, i2) {
@@ -90,7 +90,7 @@ class PriorityQueue {
    */
   get time() {
     if (this._currentLength > 1) {
-      return this._heap[1][priorityQueueTimeKey];
+      return this._heap[1][priorityQueueTime];
     }
 
     return Infinity;
@@ -144,7 +144,7 @@ class PriorityQueue {
     let parentIndex = Math.floor(index / 2);
     let parent = this._heap[parentIndex];
 
-    while (parent && this._isHigher(entry[priorityQueueTimeKey], parent[priorityQueueTimeKey])) {
+    while (parent && this._isHigher(entry[priorityQueueTime], parent[priorityQueueTime])) {
       swap(this._heap, index, parentIndex);
 
       index = parentIndex;
@@ -167,14 +167,14 @@ class PriorityQueue {
     let child1 = this._heap[c1index];
     let child2 = this._heap[c2index];
 
-    while ((child1 && this._isLower(entry[priorityQueueTimeKey], child1[priorityQueueTimeKey])) ||
-           (child2 && this._isLower(entry[priorityQueueTimeKey], child2[priorityQueueTimeKey])))
+    while ((child1 && this._isLower(entry[priorityQueueTime], child1[priorityQueueTime])) ||
+           (child2 && this._isLower(entry[priorityQueueTime], child2[priorityQueueTime])))
     {
       // swap with the minimum child
       let targetIndex;
 
       if (child2)
-        targetIndex = this._isHigher(child1[priorityQueueTimeKey], child2[priorityQueueTimeKey])
+        targetIndex = this._isHigher(child1[priorityQueueTime], child2[priorityQueueTime])
           ? c1index : c2index;
       else
         targetIndex = c1index;
@@ -220,7 +220,7 @@ class PriorityQueue {
       time = this.reverse ? -Infinity : Infinity;
     }
 
-    entry[priorityQueueTimeKey] = time;
+    entry[priorityQueueTime] = time;
     // add the new entry at the end of the heap
     this._heap[this._currentLength] = entry;
     // bubble it up
@@ -240,11 +240,11 @@ class PriorityQueue {
     const index = this._heap.indexOf(entry);
 
     if (index !== -1) {
-      entry[priorityQueueTimeKey] = time;
+      entry[priorityQueueTime] = time;
       // define if the entry should be bubbled up or down
       const parent = this._heap[Math.floor(index / 2)];
 
-      if (parent && this._isHigher(time, parent[priorityQueueTimeKey]))
+      if (parent && this._isHigher(time, parent[priorityQueueTime]))
         this._bubbleUp(index);
       else
         this._bubbleDown(index);
@@ -282,7 +282,7 @@ class PriorityQueue {
           const entry = this._heap[index];
           const parent = this._heap[Math.floor(index / 2)];
 
-          if (parent && this._isHigher(entry[priorityQueueTimeKey], parent[priorityQueueTimeKey]))
+          if (parent && this._isHigher(entry[priorityQueueTime], parent[priorityQueueTime]))
             this._bubbleUp(index);
           else
             this._bubbleDown(index);
@@ -290,7 +290,7 @@ class PriorityQueue {
       }
 
       // delete symbol key
-      delete entry[priorityQueueTimeKey];
+      delete entry[priorityQueueTime];
       // update current length
       this._currentLength = lastIndex;
     }
@@ -304,7 +304,7 @@ class PriorityQueue {
   clear() {
     // clear symbol from each entry
     for (let i = 1; i < this._currentLength; i++) {
-      delete this._heap[i][priorityQueueTimeKey];
+      delete this._heap[i][priorityQueueTime];
     }
 
     this._currentLength = 1;

@@ -17,5 +17,7 @@ export function quantize(val, precision = 1e-9) {
 export const identity = t => t;
 
 // symbols
-export const schedulerKey = Symbol.for('sc-scheduling:scheduler');
-export const priorityQueueTimeKey = Symbol.for('sc-scheduling:queue-time');
+export const priorityQueueTime = Symbol.for('sc-scheduling:queue-time');
+export const schedulerInstance = Symbol.for('sc-scheduling:scheduler');
+// for backward compatibility with waves engines
+export const schedulerCompatMode = Symbol.for('sc-scheduling:compat-mode');

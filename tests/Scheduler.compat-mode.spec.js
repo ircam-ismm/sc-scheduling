@@ -68,7 +68,7 @@ describe('# Scheduler', () => {
   });
 
   describe('.add(engine, time)', () => {
-    it(`should throw if engine is not a function`, () => {
+    it(`should throw if engine does not implement advanceTime`, () => {
       const scheduler = new Scheduler(getTime);
       shouldThrow(() => scheduler.add({}));
     });
@@ -76,13 +76,13 @@ describe('# Scheduler', () => {
 
     it(`should throw if invalid time given`, () => {
       const scheduler = new Scheduler(getTime);
-      const engine = () => {};
+      const engine = { advanceTime: () => {}};
       shouldThrow(() => scheduler.add(engine));
     });
 
     it(`should throw if engine is added twice`, () => {
       const scheduler = new Scheduler(getTime);
-      const engine = () => {};
+      const engine = { advanceTime: () => {}};
       // define time in future so that engine is kept in scheduler
       // note: if delay is < lookahead tick is called synchronously
       scheduler.add(engine, 0.2);
@@ -92,10 +92,12 @@ describe('# Scheduler', () => {
     it(`should start synchronously (no setTimeout) if needed`, () => {
       const scheduler = new Scheduler(getTime);
       const startAt = getTime();
-      const engine = (currentTime, audioTime, dt) => {
-        assert.equal(startAt, currentTime);
-        console.log('> dt (should be negative, i.e. we are late, but below ms):', dt);
-        assert.isBelow(dt, 2e-5); // 0.02ms (~sample duration)
+      const engine = {
+        advanceTime: (currentTime, audioTime, dt) => {
+          assert.equal(startAt, currentTime);
+          console.log('> dt (should be negative, i.e. we are late, but below ms):', dt);
+          assert.isBelow(dt, 2e-5); // 0.02ms (~sample duration)
+        },
       };
       scheduler.add(engine, startAt);
     });
@@ -103,9 +105,11 @@ describe('# Scheduler', () => {
     it(`should start in future with given time`, () => {
       const scheduler = new Scheduler(getTime);
       const startAt = getTime() +  0.1;
-      const engine = (currentTime, audioTime, dt) => {
-        assert.equal(startAt, currentTime);
-        console.log('> dt (should be ~0.1, i.e.lookahead):', dt);
+      const engine = {
+        advanceTime: (currentTime, audioTime, dt) => {
+          assert.equal(startAt, currentTime);
+          console.log('> dt (should be ~0.1, i.e.lookahead):', dt);
+        },
       };
 
       scheduler.add(engine, startAt);
@@ -115,17 +119,19 @@ describe('# Scheduler', () => {
       const scheduler = new Scheduler(getTime);
       let time = getTime() +  0.1;
       let counter = 0;
-      const engine = (currentTime, audioTime, dt) => {
-        console.log(currentTime);
-        assert.equal(currentTime, time);
+      const engine = {
+        advanceTime: (currentTime, audioTime, dt) => {
+          console.log(currentTime);
+          assert.equal(currentTime, time);
 
-        time += 0.1;
+          time += 0.1;
 
-        if (++counter >= 5) {
-          return; // stop engine
+          if (++counter >= 5) {
+            return; // stop engine
+          }
+
+          return currentTime + 0.1;
         }
-
-        return currentTime + 0.1;
       };
 
       scheduler.add(engine, time);
@@ -139,13 +145,15 @@ describe('# Scheduler', () => {
       const scheduler = new Scheduler(getTime);
       let time = getTime() +  0.1;
       let counter = 0;
-      const engine = (currentTime, audioTime, dt) => {
-        console.log(currentTime);
-        assert.equal(currentTime, time);
+      const engine = {
+        advanceTime: (currentTime, audioTime, dt) => {
+          console.log(currentTime);
+          assert.equal(currentTime, time);
 
-        time += 0.1;
+          time += 0.1;
 
-        return currentTime + 0.1;
+          return currentTime + 0.1;
+        }
       };
 
       scheduler.add(engine, time);
@@ -163,11 +171,13 @@ describe('# Scheduler', () => {
       const scheduler = new Scheduler(getTime);
       let time;
       let counter = 0;
-      const engine = (currentTime, audioTime, dt) => {
-        console.log(currentTime);
-        assert.equal(currentTime, time);
+      const engine = {
+        advanceTime: (currentTime, audioTime, dt) => {
+          console.log(currentTime);
+          assert.equal(currentTime, time);
 
-        return Infinity; // engine is not removed from scheduler
+          return Infinity; // engine is not removed from scheduler
+        }
       };
 
       time = getTime();
@@ -186,12 +196,14 @@ describe('# Scheduler', () => {
       const scheduler = new Scheduler(getTime);
       let time;
       let counter = 0;
-      const engine = (currentTime, audioTime, dt) => {
-        console.log(currentTime);
-        assert.equal(currentTime, time);
+      const engine = {
+        advanceTime: (currentTime, audioTime, dt) => {
+          console.log(currentTime);
+          assert.equal(currentTime, time);
 
-        time += 0.1;
-        return currentTime + 0.1; // engine is not removed from scheduler
+          time += 0.1;
+          return currentTime + 0.1; // engine is not removed from scheduler
+        }
       };
 
       time = getTime();
@@ -200,7 +212,7 @@ describe('# Scheduler', () => {
       scheduler.clear();
 
       // check the schedulerInstance is clean
-      assert.equal(Object.getOwnPropertySymbols(engine).length, 0);
+      assert.equal(Object.getOwnPropertySymbols(engine[schedulerCompatMode]).length, 0);
       // should not throw
       scheduler.add(engine, time + 1);
       scheduler.clear();
@@ -213,12 +225,14 @@ describe('# Scheduler', () => {
       let time;
       let hasStarted = false;
 
-      const engine = (currentTime, audioTime, dt) => {
-        console.log(currentTime);
-        assert.equal(currentTime, time);
-        hasStarted = true;
-        // engine is not removed from scheduler, but scheduler should stop
-        return Infinity;
+      const engine = {
+        advanceTime: (currentTime, audioTime, dt) => {
+          console.log(currentTime);
+          assert.equal(currentTime, time);
+          hasStarted = true;
+          // engine is not removed from scheduler, but scheduler should stop
+          return Infinity;
+        }
       };
 
       time = getTime();
@@ -250,17 +264,23 @@ describe('# Scheduler', () => {
 
       // add at 0.
       let called = false;
-      const engineBg = (currentTime, audioTime, dt) => {
-        console.log('- bg', getTime(), currentTime, dt);
-        return currentTime + 2.2; //
+      const engineBg = {
+        advanceTime: (currentTime, audioTime, dt) => {
+          console.log('- bg', getTime(), currentTime, dt);
+          return currentTime + 2.2; //
+        }
       };
-      const engineA = (currentTime, audioTime, dt) => {
-        console.log('- a', getTime(), currentTime, dt);
-        return Infinity;
+      const engineA = {
+        advanceTime: (currentTime, audioTime, dt) => {
+          console.log('- a', getTime(), currentTime, dt);
+          return Infinity;
+        }
       };
-      const engineB = (currentTime, audioTime, dt) => {
-        console.log('- b (should not be executed)', getTime(), currentTime, dt);
-        return Infinity;
+      const engineB = {
+        advanceTime: (currentTime, audioTime, dt) => {
+          console.log('- b (should not be executed)', getTime(), currentTime, dt);
+          return Infinity;
+        }
       };
 
       let time = getTime(); // time 0
@@ -306,3 +326,4 @@ describe('# Scheduler', () => {
   // });
 
 });
+

@@ -1,9 +1,41 @@
 import { isFunction, isNumber } from '@ircam/sc-utils';
 
 import PriorityQueue from './PriorityQueue.js';
-import { identity, schedulerKey } from './utils.js';
+import {
+  identity,
+  schedulerInstance,
+  schedulerCompatMode,
+} from './utils.js';
 
 /**
+ *
+ *
+ * To mitigate errors introduced by setTimeout (which is around 1ms), event scheduled
+ * within a 10ms from now are executed synchronously, e.g.:
+ * ```
+ * const now = getTime();
+ * scheduler.add(engine, now);
+ * ```
+ * will execute the `engine.advanceTime` synchronously, whild
+ *
+ * ```
+ * const now = getTime();
+ * scheduler.add(engine, now + 0.02);
+ * ```
+ * will defer the `engine.advanceTime` in a timeout.
+ *
+ * This can lead in certain rare circumstances to unintuitive behaviour, such as
+ * ```
+ * const now = getTime();
+ * scheduler.reset(engine, now); // is executed
+ * scheduler.remove(engine, now);
+ * ```
+ * while
+ * ```
+ * const now = getTime();
+ * scheduler.reset(engine, now + 0.2); // is not executed
+ * scheduler.remove(engine, now + 0.2);
+ * ```
  *
  * @example
  * import { Scheduler } from 'waves-masters';
@@ -122,23 +154,32 @@ class Scheduler {
   }
 
   /**
-   * Schedule a function at a given time. If time is in the past, is executed immediately.
+   * Execute a function once at a given time, compensating for the dt introduced by
+   * the lookahead. Can be usefull for example to synchronize audio (natively scheduled)
+   *  and visuals which have no internal timing/scheduling ability.
+   *
    * @param {function} callback - Callback function to schedule.
    * @param {number} time - Time at which the callback should be scheduled.
+   * @example
+   * const scheduler = new Scheduler(getTime);
+   *
+   * scheduler.add((currentTime, audioTime) => {
+   *   // schedule some audio event
+   *   playSomeSoundAt(audioTime);
+   *   // defer execution of visual display to compensate the dt
+   *   scheduler.defer(() => displaySomeSynchronizedStuff(), currentTime);
+   *   // ask the scheduler to call back in 1 second
+   *   return currentTime + 1;
+   * });
    */
   defer(callback, time) {
-    if (!isFunction(callback)) {
-      throw new Error('[sc-scheduling] Invalid parameter for `scheduler.defer(callback, time)`, callback should be a function');
-    }
-
-    if (!isNumber(time)) {
-      throw new Error(`[sc-scheduler] Invalid time for scheduler.defer(func, time)`);
-    }
-
+    // no need to check arguments, it is done in `add`
     const engine = {
       advanceTime: (currentTime, audioTime, dt) => {
-        callback(currentTime, audioTime, dt);
-        // make sure that the engine will be cleared after one call
+        setTimeout(() => {
+          callback(currentTime, audioTime);
+        }, Math.ceil(dt * 1000));
+        // make sure the engine will be cleared after one single call
         return null;
       },
     };
@@ -150,35 +191,54 @@ class Scheduler {
    * Add a time engine to the scheduler. A valid "time engine" can be any object that implements
    * an `advanceTime(currentTime, audioTime, dt)` method. If the engine has already been added
    * to the scheduler, acts as `reset(engine, time)`
+   * @param {function} engine - @todo - document as type
+   * @param {number} time - Time at which the engine should be executed first, in
+   *  the time reference of `getTimeFunction`
    */
   add(engine, time) {
-    if (!isFunction(engine.advanceTime)) {
-      throw new Error(`[sc-scheduler] Engine cannot be added to scheduler. A valid "time engine" should implement the "advanceTime(currentTime, audioTime, dt)" method`);
+    // backward compatibility with old waves TimeEngine API
+    if (isFunction(engine.advanceTime)) {
+      // make sure we don't bind twice and always grad the same binded instance
+      if (engine[schedulerCompatMode] === undefined) {
+        engine[schedulerCompatMode] = engine.advanceTime.bind(engine);
+      }
+
+      engine = engine[schedulerCompatMode];
+    }
+
+    if (!isFunction(engine)) {
+      delete engine[schedulerInstance];
+      throw new Error(`[sc-scheduler] Invalid argument for scheduler.add(engine, time), engine should be a function`);
     }
 
     if (!isNumber(time)) {
-      throw new Error(`[sc-scheduler] Invalid time for scheduler.add(engine, time)`);
+      throw new Error(`[sc-scheduler] Invalid time for scheduler.add(engine, time), time should be a number`);
     }
 
     // prevent that an engine is added to several scheduler
-    if (engine[schedulerKey] !== undefined) {
-      if (engine[schedulerKey] !== this) {
+    if (engine[schedulerInstance] !== undefined) {
+      if (engine[schedulerInstance] !== this) {
         throw new Error(`[sc-scheduler] Engine cannot be added to this scheduler, it has already been added to another scheduler`);
       } else {
         throw new Error(`[sc-scheduler] Engine has already been added to this scheduler`);
       }
     }
 
-    engine[schedulerKey] = this;
+    engine[schedulerInstance] = this;
     this._engines.add(engine);
 
     const nextTime = this._queue.add(engine, time);
     // use a minimum bound of 0 because the the engine could be added before the next tick time
-    this._resetTick(nextTime, 0);
+    this._resetTick(nextTime, true);
   }
 
   reset(engine, time) {
-    if (engine[schedulerKey] !== undefined && engine[schedulerKey] !== this) {
+    // backward compatibility with old waves TimeEngine API
+    if (engine[schedulerCompatMode]) {
+      engine = engine[schedulerCompatMode];
+    }
+
+    if (engine[schedulerInstance] !== undefined && engine[schedulerInstance] !== this) {
       throw new Error(`[sc-scheduler] Engine cannot be reset on this scheduler, it has been added to another scheduler`);
     }
 
@@ -188,34 +248,44 @@ class Scheduler {
 
     const nextTime = this._queue.move(engine, time);
     // use a minimum bound of 0 because the the engine could be reset before the next tick time
-    this._resetTick(nextTime, 0);
+    this._resetTick(nextTime, true);
   }
 
   // remove a time engine from the queue
   remove(engine) {
-    if (engine[schedulerKey] !== undefined && engine[schedulerKey] !== this) {
+    // backward compatibility with old waves TimeEngine API
+    if (engine[schedulerCompatMode]) {
+      const _engine = engine[schedulerCompatMode];
+      delete engine[schedulerCompatMode];
+      engine = _engine;
+    }
+
+    if (engine[schedulerInstance] !== undefined && engine[schedulerInstance] !== this) {
       throw new Error(`[sc-scheduler] Engine cannot be removed from this scheduler, it has been added to another scheduler`);
     }
 
-    delete engine[schedulerKey];
+    delete engine[schedulerInstance];
+
     // remove from array and queue
     this._engines.delete(engine);
     const nextTime = this._queue.remove(engine);
+
     // a minimum bound of this.period is right, as there is now way the next time
     // is before the previously defined next time.
-    this._resetTick(nextTime, this.period);
+
+    this._resetTick(nextTime, true);
   }
 
     // clear queue
   clear() {
     for (let engine of this._engines) {
-      delete engine[schedulerKey];
+      delete engine[schedulerInstance];
     }
 
     this._queue.clear();
     this._engines.clear();
     // just stops the scheduler
-    this._resetTick(Infinity, Infinity);
+    this._resetTick(Infinity, false);
   }
 
   /** @private */
@@ -234,7 +304,7 @@ class Scheduler {
       const dt = time - currentTime;
       // retreive the engine and advance its time
       const engine = this._queue.head;
-      const nextTime = engine.advanceTime(time, audioTime, dt);
+      const nextTime = engine(time, audioTime, dt);
 
       // @todo quantize nextTime
 
@@ -253,42 +323,52 @@ class Scheduler {
     }
 
     this._currentTime = null;
-    // a minimum bound of this.period is right have we are in the "normal"
-    // scheduling behaviour
-    this._resetTick(time, this.period);
+    // minimum bound of this.period is ok as we are in the "normal" scheduling behaviour
+    this._resetTick(time, false);
   }
 
-  _resetTick(time, minimumBound) {
-    // resetTick has already been called with this time, abort
-    if (this._nextTime === time) {
+  // time is the queue time,
+  // _nextTime is last recorded queue time
+  _resetTick(queueTime, isReschedulingEvent) {
+    // @note
+    // @mportant
+    // - quantize * at the priority queue level
+    // - define what could go wrong for each case. e.g. something is added before
+    // next scheduled tick, etc.
+
+    // queueTime has not changed since last call, we are all good
+    if (queueTime === this._nextTime) {
       return;
     }
 
+    const previousNextTime = this._nextTime;
+    this._nextTime = queueTime;
+
     clearTimeout(this._timeoutId);
 
-    if (time !== Infinity) {
-      if (this._verbose && this._nextTime === Infinity) {
+    if (this._nextTime !== Infinity) {
+      if (this._verbose && previousNextTime === Infinity) {
         console.log('[sc-scheduling] > scheduler start');
       }
 
       const now = this._getTimeFunction();
-      // @todo - this.period as minimum bound is not right, e.g. if an engine
-      // is reset before `now + this.period`, we should be able to lower this
-      // minimum bound on `add` and `reset`
-      const timeoutDelay = Math.max(time - now - this.lookahead, minimumBound);
-      // next time must be set before tick()
-      this._nextTime = time;
-      // note that going though the setTimeout (even with zero) will incur a delay
-      // of around ~0.2 ms (in node) which is around 10 samples.
-      // Without the timeout we have  -0.0000119 which is below the sample.
-      if (timeoutDelay === 0) {
+      const dt = this._nextTime - now;
+      // setTimeout introduce an error of around 1ms we should take into account.
+      // So if _nextTime is within a 10ms window we execute synchronously, in
+      // other cases we can quite safely rely on async
+      if (dt < 0.01) {
         this._tick();
       } else {
+        // if its a rescheduling event (add, reset, remove), the event can be
+        // within the period window, so we just clamp the minimum timeout to 1ms
+        // @note that timeout 0, is revy noisy, and event within 10ms window has
+        // been handled synchronously, so we should be good.
+        // So if anything falls into the lookahead, the timeout will be 1ms
+        const minimumBound = isReschedulingEvent ? 1e-3 : this.period;
+        const timeoutDelay = Math.max(dt - this.lookahead, minimumBound);
         this._timeoutId = setTimeout(this._tick, Math.ceil(timeoutDelay * 1000));
       }
-    } else if (this._nextTime !== Infinity) {
-      this._nextTime = time;
-
+    } else if (previousNextTime !== Infinity) {
       if (this._verbose) {
         console.log('[sc-scheduling] > scheduler stop');
       }
