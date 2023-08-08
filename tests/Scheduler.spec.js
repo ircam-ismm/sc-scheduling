@@ -3,7 +3,7 @@ import { getTime } from '@ircam/sc-gettime';
 import { sleep } from '@ircam/sc-utils';
 
 import Scheduler from '../src/Scheduler.js';
-import { schedulerCompatMode } from '../src/utils.js';
+import { quantize, schedulerCompatMode } from '../src/utils.js';
 
 function shouldThrow(test) {
   let failed = false;
@@ -91,9 +91,9 @@ describe('# Scheduler', () => {
 
     it(`should start synchronously (no setTimeout) if needed`, () => {
       const scheduler = new Scheduler(getTime);
-      const startAt = getTime();
+      const startAt = getTime() + 1e-12;
       const engine = (currentTime, audioTime, dt) => {
-        assert.equal(startAt, currentTime);
+        assert.equal(quantize(startAt), currentTime);
         console.log('> dt (should be negative, i.e. we are late, but below ms):', dt);
         assert.isBelow(dt, 2e-5); // 0.02ms (~sample duration)
       };
@@ -104,7 +104,7 @@ describe('# Scheduler', () => {
       const scheduler = new Scheduler(getTime);
       const startAt = getTime() +  0.1;
       const engine = (currentTime, audioTime, dt) => {
-        assert.equal(startAt, currentTime);
+        assert.equal(quantize(startAt), currentTime);
         console.log('> dt (should be ~0.1, i.e.lookahead):', dt);
       };
 
@@ -117,7 +117,7 @@ describe('# Scheduler', () => {
       let counter = 0;
       const engine = (currentTime, audioTime, dt) => {
         console.log(currentTime);
-        assert.equal(currentTime, time);
+        assert.equal(quantize(time), currentTime);
 
         time += 0.1;
 
@@ -141,7 +141,7 @@ describe('# Scheduler', () => {
       let counter = 0;
       const engine = (currentTime, audioTime, dt) => {
         console.log(currentTime);
-        assert.equal(currentTime, time);
+        assert.equal(quantize(time), currentTime);
 
         time += 0.1;
 
@@ -165,7 +165,7 @@ describe('# Scheduler', () => {
       let counter = 0;
       const engine = (currentTime, audioTime, dt) => {
         console.log(currentTime);
-        assert.equal(currentTime, time);
+        assert.equal(quantize(time), currentTime);
 
         return Infinity; // engine is not removed from scheduler
       };
@@ -188,7 +188,7 @@ describe('# Scheduler', () => {
       let counter = 0;
       const engine = (currentTime, audioTime, dt) => {
         console.log(currentTime);
-        assert.equal(currentTime, time);
+        assert.equal(quantize(time), currentTime);
 
         time += 0.1;
         return currentTime + 0.1; // engine is not removed from scheduler
@@ -215,7 +215,7 @@ describe('# Scheduler', () => {
 
       const engine = (currentTime, audioTime, dt) => {
         console.log(currentTime);
-        assert.equal(currentTime, time);
+        assert.equal(quantize(time), currentTime);
         hasStarted = true;
         // engine is not removed from scheduler, but scheduler should stop
         return Infinity;

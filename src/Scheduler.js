@@ -9,8 +9,9 @@ import {
 
 /**
  *
+ * ## Notes
  *
- * To mitigate errors introduced by setTimeout (which is around 1ms), event scheduled
+ * 1. To mitigate errors introduced by setTimeout (which is around 1ms), event scheduled
  * within a 10ms from now are executed synchronously, e.g.:
  * ```
  * const now = getTime();
@@ -36,6 +37,10 @@ import {
  * scheduler.reset(engine, now + 0.2); // is not executed
  * scheduler.remove(engine, now + 0.2);
  * ```
+ *
+ * 2. All times (given to methods, or retrieved by engines) are processed (naive
+ * quantization at 1e-9) in order to try to mitigate floating point errors. This
+ * is experimental and may be removed if not conclusive.
  *
  * @example
  * import { Scheduler } from 'waves-masters';
@@ -294,7 +299,7 @@ class Scheduler {
   /** @private */
   _tick() {
     const currentTime = this._getTimeFunction();
-    let time = this._nextTime;
+    let time = this._queue.time;
 
     this._timeoutId = null;
 
@@ -330,16 +335,15 @@ class Scheduler {
     this._resetTick(time, false);
   }
 
-  // time is the queue time,
-  // _nextTime is last recorded queue time
+  /**
+   * @private
+   * @param {number} queueTime - The current queue time
+   * @param {boolean} isReschedulingEvent - whether the function has been called
+   *  from a modification in the timeline, i.e. add, reset, remove
+   */
   _resetTick(queueTime, isReschedulingEvent) {
-    // @note
-    // @mportant
-    // - quantize * at the priority queue level
-    // - define what could go wrong for each case. e.g. something is added before
-    // next scheduled tick, etc.
-
-    // queueTime has not changed since last call, we are all good
+    // _nextTime store the queueTime the last time _resetTick has been called.
+    // queueTime has not changed since last call, we are all good.
     if (queueTime === this._nextTime) {
       return;
     }

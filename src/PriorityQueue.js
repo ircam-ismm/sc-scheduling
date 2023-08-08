@@ -1,4 +1,4 @@
-import { priorityQueueTime } from './utils.js';
+import { quantize, priorityQueueTime } from './utils.js';
 
 // works by reference
 function swap(arr, i1, i2) {
@@ -202,6 +202,23 @@ class PriorityQueue {
     }
   }
 
+  _sanitizeTime(time) {
+    if (!Number.isFinite(time)) {
+      // ±Infinity should always be at the end of the queue, disregarding its sign.
+      // Using Number.isFinite also allows us to handle NaN gracefully
+      if (Math.abs(time) !== Infinity) {
+        console.warn(`PriorityQueue: entry`, JSON.stringify(entry), `inserted with NaN time: "${time}" (overriden to Infinity). This probably shows an error in your implementation.`);
+      }
+
+      time = this.reverse ? -Infinity : Infinity;
+    } else {
+      // Quantize time at µs to mitigate floating point error (tbc)
+      time = quantize(time);
+    }
+
+    return time;
+  }
+
   /**
    * Insert a new object in the binary heap and sort it.
    *
@@ -210,15 +227,7 @@ class PriorityQueue {
    * @returns {Number} - Time of the first entry in the heap.
    */
   add(entry, time) {
-    // ±Infinity should always be at the end of the queue, disregarding its sign.
-    // Using Number.isFinite also allows us to handle NaN gracefully
-    if (!Number.isFinite(time)) {
-      if (Math.abs(time) !== Infinity) {
-        console.warn(`PriorityQueue: entry`, JSON.stringify(entry), `inserted with NaN time: "${time}" (overriden to Infinity). This probably shows an error in your implementation.`);
-      }
-
-      time = this.reverse ? -Infinity : Infinity;
-    }
+    time = this._sanitizeTime(time);
 
     entry[priorityQueueTime] = time;
     // add the new entry at the end of the heap
@@ -240,6 +249,8 @@ class PriorityQueue {
     const index = this._heap.indexOf(entry);
 
     if (index !== -1) {
+      time = this._sanitizeTime(time);
+
       entry[priorityQueueTime] = time;
       // define if the entry should be bubbled up or down
       const parent = this._heap[Math.floor(index / 2)];
