@@ -309,23 +309,24 @@ class Scheduler {
 
   /** @private */
   _tick() {
-    const currentTime = this._getTimeFunction();
-    let time = this._queue.time;
+    const tickTime = this._getTimeFunction();
+    let queueTime = this._queue.time;
 
     this._timeoutId = null;
 
-    while (time <= currentTime + this.lookahead) {
+    while (queueTime <= tickTime + this.lookahead) {
+
       // set current time of scheduler to event logical time
-      this._currentTime = time;
+      this._currentTime = queueTime;
       // grab related audio time if a transfert function has been given
-      const audioTime = this._currentTimeToAudioTimeFunction(time);
+      const audioTime = this._currentTimeToAudioTimeFunction(queueTime);
       // delta time between the tick call and the scheduled event
-      const dt = time - currentTime;
+      const dt = queueTime - tickTime;
       // retreive the engine and advance its time
       const engine = this._queue.head;
       const engineInfos = this._engineTimeCounterMap.get(engine);
 
-      let nextTime = engine(time, audioTime, dt);
+      let nextTime = engine(queueTime, audioTime, dt);
 
       // Prevent infinite loops:
       // We don't to enforce that nextTime > time because it can be handy for e.g.
@@ -350,12 +351,12 @@ class Scheduler {
       }
 
       // grab net event time in queue
-      time = this._queue.time;
+      queueTime = this._queue.time;
     }
 
     this._currentTime = null;
     // minimum bound of this.period is ok as we are in the "normal" scheduling behaviour
-    this._resetTick(time, false);
+    this._resetTick(queueTime, false);
   }
 
   /**
@@ -365,12 +366,9 @@ class Scheduler {
    *  from a modification in the timeline, i.e. add, reset, remove
    */
   _resetTick(queueTime, isReschedulingEvent) {
-    // _nextTime store the queueTime the last time _resetTick has been called.
-    // queueTime has not changed since last call, we are all good.
-    if (queueTime === this._nextTime) {
-      return;
-    }
-
+    // @note - we cant compare previous and next time to avoid rescheduling because
+    // timeout is so unstable, e.g. sometimes triggered before it deadline, that it
+    // sometimes just stop the scheduler for no apparent reason
     const previousNextTime = this._nextTime;
     this._nextTime = queueTime;
 
@@ -389,11 +387,11 @@ class Scheduler {
       if (dt < 0.01) {
         this._tick();
       } else {
-        // if its a rescheduling event (add, reset, remove), the event can be
-        // within the period window, so we just clamp the minimum timeout to 1ms
-        // @note that timeout 0, is revy noisy, and event within 10ms window has
-        // been handled synchronously, so we should be good.
-        // So if anything falls into the lookahead, the timeout will be 1ms
+        // if its a rescheduling event (add, reset, remove), `queueTime` can be
+        // within the `period` window, so we just clamp the minimum timeout to 1ms
+        // @note that timeout 0, is very noisy, and event within 10ms window are
+        // handled synchronously, so we should be good.
+        // Hence if anything falls into the lookahead, the timeout will be 1ms
         const minimumBound = isReschedulingEvent ? 1e-3 : this.period;
         const timeoutDelay = Math.max(dt - this.lookahead, minimumBound);
         this._timeoutId = setTimeout(this._tick, Math.ceil(timeoutDelay * 1000));

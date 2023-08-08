@@ -1,13 +1,18 @@
 {
   "name": "@ircam/sc-scheduling",
   "version": "0.0.0",
-  "description": "Set of classes for advanced audio scheduling in Node.js and the browser",
+  "description": "Set of abstractions for advanced audio scheduling in Node.js and the browser.",
   "author": [
     "Benjamin Matuszewski",
     "Norbert Schnell"
   ],
   "license": "BSD-3-Clause",
   "main": "./src/index.js",
+  "unpkg": "./build/bundle.js",
+  "exports": {
+    ".": "src/index.js",
+    "./": "src/"
+  },
   "type": "module",
   "publishConfig": {
     "access": "public"
@@ -26,22 +31,28 @@
     "scheduling"
   ],
   "scripts": {
+    "build": "webpack --config webpack.config.js",
+    "preversion": "npm run build",
+    "doc": "cd docs && npm run dev",
+    "doc:prod": "cd docs && npm run build:prod",
     "test": "mocha"
   },
   "devDependencies": {
+    "@ircam/sc-components": "^3.0.0-alpha.29",
     "@ircam/sc-gettime": "^1.0.1",
-    "browser-hrtime": "^1.1.8",
     "chai": "^4.3.7",
     "jsdoc-to-markdown": "^8.0.0",
-    "jzz": "^1.6.1",
+    "json5": "^2.2.3",
     "mocha": "^10.1.0",
-    "nanotimer": "^0.3.15",
+    "npm-run-all": "^4.1.5",
+    "serve": "^14.2.0",
     "showdown": "^2.1.0",
-    "smpte-timecode": "^1.3.2",
-    "waves-masters": "^2.3.1"
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
   },
   "dependencies": {
     "@ircam/sc-utils": "^1.3.0",
-    "clone-deep": "^4.0.1"
+    "clone-deep": "^4.0.1",
+    "lit": "^2.8.0"
   }
 }

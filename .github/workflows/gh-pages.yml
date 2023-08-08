@@ -1,0 +1,33 @@
+name: build-docs
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: 'Install Node'
+        uses: actions/setup-node@v3.6.0
+
+      - name: Install lib dependencies
+        run: npm install
+
+      - name: Build docs
+        run: npm run doc:prod
+
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: docs
+
+
