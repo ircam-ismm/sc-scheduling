@@ -105,7 +105,8 @@ describe('# Scheduler', () => {
 
       // check the schedulerInstance is clean
       assert.equal(Object.getOwnPropertySymbols(engine[schedulerCompatMode]).length, 0);
-      // should not throw
+
+      // make sure we can add the engine back to the scheduler
       scheduler.add(engine, time + 1);
       scheduler.clear();
     });
