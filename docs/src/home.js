@@ -24,6 +24,7 @@ export const template = html`
     </ul>
   </p>
 
+<!--
   <h2 style="margin-top: 60px;">Usage</h2>
 
   <h3>With npm and bundlers</h3>
@@ -109,4 +110,5 @@ render(html\`
   <a target="_blank" href="https://github.com/ircam-ismm/sc-scheduling/blob/main/LICENSE">BSD-3-Clause</a>
 
   <div style="height: 120px;"></div>
+-->
 `;
