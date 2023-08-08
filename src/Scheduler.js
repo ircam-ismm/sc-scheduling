@@ -196,7 +196,7 @@ class Scheduler {
    *  the time reference of `getTimeFunction`
    */
   add(engine, time) {
-    // backward compatibility with old waves TimeEngine API
+    // compat mode for old waves TimeEngine API
     if (isFunction(engine.advanceTime)) {
       // make sure we don't bind twice and always grad the same binded instance
       if (engine[schedulerCompatMode] === undefined) {
@@ -205,6 +205,7 @@ class Scheduler {
 
       engine = engine[schedulerCompatMode];
     }
+    // ----------------------------------------
 
     if (!isFunction(engine)) {
       delete engine[schedulerInstance];
@@ -233,10 +234,11 @@ class Scheduler {
   }
 
   reset(engine, time) {
-    // backward compatibility with old waves TimeEngine API
+    // compat mode for old waves TimeEngine API
     if (engine[schedulerCompatMode]) {
       engine = engine[schedulerCompatMode];
     }
+    // ----------------------------------------
 
     if (engine[schedulerInstance] !== undefined && engine[schedulerInstance] !== this) {
       throw new Error(`[sc-scheduler] Engine cannot be reset on this scheduler, it has been added to another scheduler`);
@@ -253,12 +255,13 @@ class Scheduler {
 
   // remove a time engine from the queue
   remove(engine) {
-    // backward compatibility with old waves TimeEngine API
+    // compat mode for old waves TimeEngine API
     if (engine[schedulerCompatMode]) {
-      const _engine = engine[schedulerCompatMode];
-      delete engine[schedulerCompatMode];
-      engine = _engine;
+      // no need to delete the schedulerCompatMode key, if the engine is added again
+      // we just reuse the already existing binded advanceTime.
+      engine = engine[schedulerCompatMode];
     }
+    // ----------------------------------------
 
     if (engine[schedulerInstance] !== undefined && engine[schedulerInstance] !== this) {
       throw new Error(`[sc-scheduler] Engine cannot be removed from this scheduler, it has been added to another scheduler`);
@@ -276,7 +279,7 @@ class Scheduler {
     this._resetTick(nextTime, true);
   }
 
-    // clear queue
+  // clear queue
   clear() {
     for (let engine of this._engines) {
       delete engine[schedulerInstance];
