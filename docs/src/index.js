@@ -11,6 +11,9 @@ import { pages } from './infos.js';
 // debug mode on localhost
 window.SC_DEBUG = window.location.hostname === 'localhost';
 
+// for display in title and generating url
+const libName = 'sc-scheduling';
+
 function setTheme(name) {
   switch (name) {
     case 'light':
@@ -49,8 +52,8 @@ async function setContent(pages, page) {
 
   // document title
   document.title = (page === 'home')
-    ? 'sc-components | documentation'
-    : `${page} | sc-components`;
+    ? `${libName} | documentation`
+    : `${page} | ${libName}`;
 
   // // reset styles
   // applyStyle('');
@@ -118,8 +121,8 @@ async function setContent(pages, page) {
 (async function main() {
   // init on rigth page
   const pathname = window.location.pathname;
-  const isProd = pathname.startsWith('/sc-components');
-  prefix = isProd ? '/sc-components' : '';
+  const isProd = pathname.startsWith(`/${libName}`);
+  prefix = isProd ? `/${libName}` : '';
 
   const page = pathname.replace(new RegExp(`^${prefix}/`), '');
 
