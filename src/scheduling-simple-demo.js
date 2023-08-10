@@ -59,6 +59,8 @@ async function executeCode(str) {
     await window.module.exit();
   }
 
+  // umute mute button
+  document.querySelector('#mute').value = false;
   // handle module, we need to clear the scheduler or they catch up at some point
   str += `
 export function exit() {
@@ -83,7 +85,9 @@ export const template = html`
     <sc-button
       @input=${async () => document.querySelector('sc-editor').save()}
     >Run the demo</sc-button>
-    <sc-text>mute</sc-text><sc-toggle
+    <sc-text>mute</sc-text>
+    <sc-toggle
+      id="mute"
       @change=${async e => {
         if (e.detail.value) {
           await window.audioContext.suspend();
@@ -95,7 +99,7 @@ export const template = html`
   </div>
   <sc-editor
     save-button
-    style="width: 900px; height: 700px;"
+    style="width: 100%; height: 700px;"
     value=${defaultCode}
     @change=${e => executeCode(e.detail.value)}
   ></sc-editor>

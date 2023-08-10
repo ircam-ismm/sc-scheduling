@@ -2,7 +2,10 @@ import { html, render } from 'lit/html.js';
 import { map } from 'lit/directives/map.js';
 
 import '@ircam/sc-components';
-// import applyStyle from './utils/applyStyle.js';
+import applyStyle from './utils/applyStyle.js';
+
+// for display in title and generating url
+const libName = 'sc-scheduling';
 
 // import lib
 import '../../src/index.js';
@@ -11,8 +14,6 @@ import { pages } from './infos.js';
 // debug mode on localhost
 window.SC_DEBUG = window.location.hostname === 'localhost';
 
-// for display in title and generating url
-const libName = 'sc-scheduling';
 
 function setTheme(name) {
   switch (name) {
@@ -50,13 +51,22 @@ async function setContent(pages, page) {
     page = 'home';
   }
 
+  let pageName = null;
+
+  for (let subNav in pages) {
+    for (let name in pages[subNav]) {
+      if (pages[subNav][name] === page) {
+        pageName = name;
+      }
+    }
+  }
   // document title
   document.title = (page === 'home')
     ? `${libName} | documentation`
-    : `${page} | ${libName}`;
+    : `${pageName} | ${libName}`;
 
   // // reset styles
-  // applyStyle('');
+  applyStyle('');
 
   // render nav bar
   const $nav = document.querySelector('#main > nav');
