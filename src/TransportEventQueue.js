@@ -138,9 +138,9 @@ export default class TransportControlEventQueue {
     nextState.loopEnd = currentState.loopEnd;
 
     this.scheduledEvents.shift();
-    this.state = Object.freeze(nextState);
+    this.state = nextState;
 
-    return this.state;
+    return Object.assign({}, this.state);
   }
 
   // return estimated position at time according to state event informations

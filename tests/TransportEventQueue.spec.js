@@ -217,7 +217,7 @@ describe(`TransportEventQueue`, () => {
   });
 
   describe(`getTimeAtPosition()`, () => {
-    it.only(`should handle infinity`, () => {
+    it(`should handle infinity`, () => {
       const queue = new TransportEventQueue();
 
       queue.add({ type: 'play', time: 0 });
