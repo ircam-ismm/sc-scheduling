@@ -5,6 +5,9 @@ console.log('');
 console.log('# test setTimeout for different delay times:');
 console.log('');
 
+// sleep a bit so that nothing creates noise
+await delay(1000);
+
 for (let i = 0; i < 50; i++) {
   // should have no promise overhead as everything is made inside it
   await new Promise(resolve => {

@@ -3,7 +3,7 @@ import { getTime } from '@ircam/sc-gettime';
 import { sleep } from '@ircam/sc-utils';
 
 import Scheduler from '../src/Scheduler.js';
-import { quantize, schedulerCompatMode } from '../src/utils.js';
+import { quantize } from '../src/utils.js';
 
 function shouldThrow(test) {
   let failed = false;
@@ -90,15 +90,16 @@ describe('# Scheduler', () => {
         shouldThrow(() => scheduler.add(engine, 0.2));
       });
 
-      it(`should start synchronously (no setTimeout) if needed`, () => {
+      it(`should start immediately if needed`, async () => {
         const scheduler = new Scheduler(getTime);
         const startAt = getTime() + 1e-12;
         const engine = (currentTime, audioTime, dt) => {
           assert.equal(quantize(startAt), currentTime);
-          console.log('> dt (should be negative, i.e. we are late, but below ms):', dt);
+          console.log('> dt is negative, i.e. we are late ~1-2ms):', dt);
           assert.isBelow(dt, 2e-5); // 0.02ms (~sample duration)
         };
         scheduler.add(engine, startAt);
+        // await sleep(0.1);
       });
 
       it(`should start in future with given time`, () => {
@@ -217,7 +218,7 @@ describe('# Scheduler', () => {
         let hasStarted = false;
 
         const engine = (currentTime, audioTime, dt) => {
-          console.log(currentTime);
+          console.log('> currentTime:', currentTime);
           assert.equal(quantize(time), currentTime);
           hasStarted = true;
           // engine is not removed from scheduler, but scheduler should stop
@@ -295,6 +296,7 @@ describe('# Scheduler', () => {
         };
 
         scheduler.add(engine, getTime());
+        await sleep(0.1);
         assert.equal(counter, 100);
       });
 
@@ -310,6 +312,7 @@ describe('# Scheduler', () => {
         };
 
         scheduler.add(engine, getTime());
+        await sleep(0.1);
         assert.equal(counter, 150);
       });
     });

@@ -27,13 +27,14 @@ describe(`# Transport`, () => {
 
       const engine = {
         onTransportEvent(event, position, time, dt) {
+          console.log('child::onTransportEvent', event.type);
           const expected = expectedEvents[index];
           assert.equal(event.type, expected.type);
           assert.equal(event.position, expected.position);
           // this one wont be precise because of the of the setTimeout
           assert.isBelow(Math.abs(event.time - expected.time), 0.01);
 
-          console.log(`type: ${event.type} - position: ${position} - time: ${time} (expected: ${expected.time})`);
+          // console.log(`type: ${event.type} - position: ${position} - time: ${time} (expected: ${expected.time})`);
 
           index += 1;
 
@@ -60,7 +61,7 @@ describe(`# Transport`, () => {
     });
   });
 
-  it.only(`should properly call engine.advanceTime method`, async function() {
+  it(`should properly call engine.advanceTime method`, async function() {
     this.timeout(8000);
 
     const scheduler = new Scheduler(getTime);
@@ -68,12 +69,12 @@ describe(`# Transport`, () => {
 
     const engine = {
       onTransportEvent(event, position, audioTime, dt) {
-        console.log('onTransportEvent:', event, position, audioTime, dt);
+        console.log('+ Child::onTransportEvent:', event, position, audioTime, dt);
         return event.speed > 0 ? position : Infinity;
       },
       advanceTime(position, audioTime, dt) {
-        console.log('advanceTime:', position, audioTime, dt);
-        return position + 0.05;
+        console.log('+ Child::advanceTime:', position, audioTime, dt);
+        return position + 0.1;
       },
     };
 

@@ -163,6 +163,11 @@ class Scheduler {
    * @returns {boolean}
    */
   has(engine) {
+    // compat mode for old waves TimeEngine API
+    if (engine[schedulerCompatMode]) {
+      engine = engine[schedulerCompatMode];
+    }
+    // ----------------------------------------
     return this._engines.has(engine);
   }
 
@@ -241,12 +246,15 @@ class Scheduler {
     engine[schedulerInstance] = this;
     this._engines.add(engine);
     this._engineTimeCounterMap.set(engine, { time: null, counter: 0 });
+    this._queue.add(engine, time);
 
-    const nextTime = this._queue.add(engine, time);
-    // use a minimum bound of 0 because the the engine could be added before the next tick time
+    const nextTime = this._queue.time;
     this._resetTick(nextTime, true);
   }
 
+  // if time is NaN, removes engine from scheduler
+  // this methos should not be called from within an engine function to reschedule
+  // itself, because the given time will be overriden by its return value
   reset(engine, time) {
     // compat mode for old waves TimeEngine API
     if (engine[schedulerCompatMode]) {
@@ -258,12 +266,13 @@ class Scheduler {
       throw new Error(`[sc-scheduler] Engine cannot be reset on this scheduler, it has been added to another scheduler`);
     }
 
-    if (!isNumber(time)) {
-      throw new Error(`[sc-scheduler] Invalid time for scheduler.reset(engine, time)`);
+    if (isNumber(time)) {
+      this._queue.move(engine, time);
+    } else {
+      this._remove(engine);
     }
 
-    const nextTime = this._queue.move(engine, time);
-    // use a minimum bound of 0 because the the engine could be reset before the next tick time
+    const nextTime = this._queue.time;
     this._resetTick(nextTime, true);
   }
 
@@ -281,16 +290,9 @@ class Scheduler {
       throw new Error(`[sc-scheduler] Engine cannot be removed from this scheduler, it has been added to another scheduler`);
     }
 
-    delete engine[schedulerInstance];
+    this._remove(engine);
 
-    // remove from array and queue
-    this._engines.delete(engine);
-    this._engineTimeCounterMap.delete(engine);
-    const nextTime = this._queue.remove(engine);
-
-    // a minimum bound of this.period is right, as there is now way the next time
-    // is before the previously defined next time.
-
+    const nextTime = this._queue.time;
     this._resetTick(nextTime, true);
   }
 
@@ -305,6 +307,14 @@ class Scheduler {
     this._engineTimeCounterMap.clear();
     // just stops the scheduler
     this._resetTick(Infinity, false);
+  }
+
+  _remove(engine) {
+    delete engine[schedulerInstance];
+    // remove from array and queue
+    this._queue.remove(engine);
+    this._engines.delete(engine);
+    this._engineTimeCounterMap.delete(engine);
   }
 
   /** @private */
@@ -347,7 +357,8 @@ class Scheduler {
       if (isNumber(nextTime)) {
         this._queue.move(engine, nextTime);
       } else {
-        this.remove(engine);
+        // we don't want to reset the tick here
+        this._remove(engine);
       }
 
       // grab net event time in queue
@@ -381,21 +392,38 @@ class Scheduler {
 
       const now = this._getTimeFunction();
       const dt = this._nextTime - now;
-      // setTimeout introduce an error of around 1ms we should take into account.
-      // So if _nextTime is within a 10ms window we execute synchronously, in
-      // other cases we can quite safely rely on async
-      if (dt < 0.01) {
-        this._tick();
-      } else {
-        // if its a rescheduling event (add, reset, remove), `queueTime` can be
-        // within the `period` window, so we just clamp the minimum timeout to 1ms
-        // @note that timeout 0, is very noisy, and event within 10ms window are
-        // handled synchronously, so we should be good.
-        // Hence if anything falls into the lookahead, the timeout will be 1ms
-        const minimumBound = isReschedulingEvent ? 1e-3 : this.period;
-        const timeoutDelay = Math.max(dt - this.lookahead, minimumBound);
-        this._timeoutId = setTimeout(this._tick, Math.ceil(timeoutDelay * 1000));
-      }
+
+      // Note 1: This is all wrong, if reset tick is called several times in a row, the
+      // set immediate wont be cancelled, then we might have several parallel tick calls
+      // which is bad... So for now let's just accept the delay
+      //
+      // Note 2: We must stay asynchronous here because if some engine is used to
+      // orchestrate other one behavior (and reset their time), we dont' want to
+      // have an engine behing executed before it returns its next time
+      //
+      // Note 3: Maybe this advocates for making it all more simple, with a loop
+      // that just starts and stop, only reschduling when an event is added with
+      // the period
+      //
+      // // old notes
+      // setTimeout introduce an error of around 1-2ms we should take into account.
+      // So if _nextTime is within a 10ms window we execute the _tick in a microtask
+      // to minimize the delay, in other cases we can quite safely rely on setTimeout
+      // if (dt < 0.01) {
+      //   // register microtask, executing synchronously create too much side effects
+      //   // and the delay is mostly the same...
+      //   // cf. https://javascript.info/microtask-queue
+      //   Promise.resolve().then(this._tick);
+      // } else {
+
+      // if its a rescheduling event (add, reset, remove), `queueTime` can be
+      // within the `period` window, so we just clamp the minimum timeout to 1ms
+      // @note: that setTimeout(func, 1), is very noisy and quite often executed
+      // later than setTimeout(func, 1)
+      const minimumBound = isReschedulingEvent ? 1e-3 : this.period;
+      const timeoutDelay = Math.max(dt - this.lookahead, minimumBound);
+      this._timeoutId = setTimeout(this._tick, Math.ceil(timeoutDelay * 1000));
+      // }
     } else if (previousNextTime !== Infinity) {
       if (this._verbose) {
         console.log('[sc-scheduling] > scheduler stop');

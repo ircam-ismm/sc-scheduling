@@ -215,4 +215,14 @@ describe(`TransportEventQueue`, () => {
       });
     });
   });
+
+  describe(`getTimeAtPosition()`, () => {
+    it.only(`should handle infinity`, () => {
+      const queue = new TransportEventQueue();
+
+      queue.add({ type: 'play', time: 0 });
+      const res = queue.getTimeAtPosition(Infinity);
+      assert.equal(res, Infinity);
+    });
+  });
 });

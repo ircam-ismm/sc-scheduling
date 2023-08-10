@@ -1,4 +1,5 @@
 import cloneDeep from 'clone-deep';
+import { isNumber } from '@ircam/sc-utils';
 
 import { quantize } from './utils.js';
 import Scheduler from './Scheduler.js';
@@ -15,7 +16,7 @@ export default class Transport {
     this.scheduler = scheduler;
     this._eventQueue = new TransportEventQueue();
 
-    this._children = new Map(); // child / oldAdvanceTime
+    this._children = new Map(); // child / originalAdvanceTime
   }
 
   get currentTime() {
@@ -143,7 +144,7 @@ export default class Transport {
         this.scheduler.add(this, this._eventQueue.next.time);
       } else if (!next || enqueued.time < next.time) {
         // reschedule transport if inserted event is before previous next event
-        this.scheduler.resetEngineTime(this, enqueued.time);
+        this.scheduler.reset(this, enqueued.time);
       }
     }
 
@@ -165,13 +166,22 @@ export default class Transport {
     // propagate transport events to all childrens, so that they can override
     // their next position
     for (let child of this._children.keys()) {
-      const resetPosition = child.onTransportEvent(event, event.position, audioTime, dt);
+      // console.log('handle children', child);
+      let resetPosition;
 
-      if (Number.isFinite(resetPosition)) {
+      try {
+        resetPosition = child.onTransportEvent(event, event.position, audioTime, dt);
+      } catch(err) {
+        console.log(err);
+      }
+
+      // @todo - reseting all children 1 by 1 is overkill, because it will call
+      // scheduler.resetTick each time, would be good to have some methods to batch
+      // the reset.
+      if (isNumber(resetPosition)) {
+        // queue.getTimeAtPosition handles Infinity too
         const resetTime = this._eventQueue.getTimeAtPosition(resetPosition);
-        this.scheduler.resetEngineTime(child, resetTime);
-      } else if (resetPosition === Number.POSITIVE_INFINITY) {
-        this.scheduler.resetEngineTime(child, Infinity);
+        this.scheduler.reset(child, resetTime);
       }
     }
 
@@ -188,32 +198,32 @@ export default class Transport {
       throw new Error(`already added to transport`);
     }
 
+    // @todo - we can do that more cleanly with the new scheduler API
+
     // The scheduler requires an advanceTime method so we need to
     // monkey patch in all cases
-    let oldAdvanceTime = child.advanceTime;
+    let originalAdvanceTime = child.advanceTime;
     // allow engine to only implement `onScheduledEvent`
-    if (!oldAdvanceTime) {
-      oldAdvanceTime = () => Infinity;
+    if (!originalAdvanceTime) {
+      originalAdvanceTime = () => Infinity;
     }
 
     child.advanceTime = (currentTime, audioTime, dt) => {
       if (this._eventQueue.state.speed > 0) {
-        const position = this._eventQueue.getPositionAtTime(currentTime);
-        const nextPosition = oldAdvanceTime.call(child, position, audioTime, dt);
+        // we should proabably quantize all the way... no idea
+        const position = this.getPositionAtTime(currentTime); // quantized
+        const nextPosition = originalAdvanceTime.call(child, position, audioTime, dt);
 
-        // make sure the engine does not remove itself from the scheduler
-        if (Number.isFinite(nextPosition)) {
-          const nextTime = this._eventQueue.getTimeAtPosition(nextPosition);
-          return nextTime;
-        } else  if (nextPosition === Number.POSITIVE_INFINITY) {
-          return Infinity;
+        if (isNumber(nextPosition)) {
+          return this._eventQueue.getTimeAtPosition(nextPosition);
         } else {
-          return null;
+          // make sure engines do not remove themselves from the scheduler
+          return Infinity;
         }
       }
     }
 
-    this._children.set(child, oldAdvanceTime);
+    this._children.set(child, originalAdvanceTime);
 
     // allow engine to only implement `advanceTime`
     if (!child.onTransportEvent) {
@@ -224,7 +234,7 @@ export default class Transport {
       }
     }
 
-    // add to scheduler
+    // add to scheduler at Infinity, children should never be removed from scheduler
     this.scheduler.add(child, Infinity);
   }
 
@@ -238,8 +248,8 @@ export default class Transport {
     this.scheduler.remove(child);
 
     // un-monkey patch the advanceTime
-    const oldAdvanceTime = this._children.get(child);
-    child.advanceTime = oldAdvanceTime;
+    const originalAdvanceTime = this._children.get(child);
+    child.advanceTime = originalAdvanceTime;
     this._children.delete(child);
   }
 }

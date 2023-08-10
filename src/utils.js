@@ -18,6 +18,13 @@
 // -> was maybe an implementation issue...
 // let's confirm we want to keep this
 
+// positive point, it garantees we don't have a value that is smaller than expected
+// in particular when we have several convertion, e.g.
+// > 1.1 + 0.1
+// > 1.1999999999999997
+
+// in any case this needs to be dig more consistently...
+
 export function quantize(val, precision = 1e-9) {
   return Math.round(val / precision) * precision;
 }

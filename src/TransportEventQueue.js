@@ -138,13 +138,17 @@ export default class TransportControlEventQueue {
     nextState.loopEnd = currentState.loopEnd;
 
     this.scheduledEvents.shift();
-    this.state = nextState;
+    this.state = Object.freeze(nextState);
 
     return this.state;
   }
 
   // return estimated position at time according to state event informations
   getPositionAtTime(time) {
+    if (!Number.isFinite(time)) {
+      return Infinity;
+    }
+
     const state = this.state;
     // compute position from actual state informations
     let position = state.position + (time - state.time) * state.speed;
@@ -173,6 +177,11 @@ export default class TransportControlEventQueue {
 
   // return estimated time at position according to state event informations
   getTimeAtPosition(position) {
+    // Infinity * 0 give NaN so handle Infinity separately
+    if (!Number.isFinite(position)) {
+      return Infinity;
+    }
+
     return this.state.time + (position - this.state.position) * this.state.speed;
   }
 }
