@@ -7,6 +7,21 @@ import {
   schedulerCompatMode,
 } from './utils.js';
 
+class SchedulerInfos {
+  constructor() {
+    this._dt = 0;
+  }
+
+  /**
+   * Delta time between tick time and current time, in seconds
+   * @type Number
+   * @readonly
+   */
+  get dt() {
+    return this._dt;
+  }
+}
+
 /**
  * The `Scheduler` interface implement a lookahead scheduler that can be used to
  * schedule events in an arbitrary timeline.
@@ -93,11 +108,12 @@ class Scheduler {
     // number of time an engine can be called with the same time before being discarded
     this._maxEngineRecursion = maxEngineRecursion;
     this._verbose = verbose;
-    // bookkeeping internal value
+    // internal bookkeeping values
     this._currentTime = null;
     this._nextTime = Infinity;
     this._timeoutId = null;
     this._engineTimeCounterMap = new Map();
+    this._tickInfos = new SchedulerInfos();
 
     // init default or user-defined values
     this.period = period;
@@ -174,7 +190,9 @@ class Scheduler {
   /**
    * Execute a function once at a given time, compensating for the dt introduced by
    * the lookahead. Can be usefull for example to synchronize audio (natively scheduled)
-   *  and visuals which have no internal timing/scheduling ability.
+   * and visuals which have no internal timing/scheduling ability.
+   * Be aware that the defer call will introcude small timing error (order of 1-2ms)
+   * due to the setTimeout.
    *
    * @param {function} callback - Callback function to schedule.
    * @param {number} time - Time at which the callback should be scheduled.
@@ -185,21 +203,22 @@ class Scheduler {
    *   // schedule some audio event
    *   playSomeSoundAt(audioTime);
    *   // defer execution of visual display to compensate the dt
-   *   scheduler.defer(() => displaySomeSynchronizedStuff(), currentTime);
+   *   scheduler.defer(displaySomeSynchronizedStuff, currentTime);
    *   // ask the scheduler to call back in 1 second
    *   return currentTime + 1;
    * });
    */
   defer(callback, time) {
-    // no need to check arguments, it is done in `add`
-    const engine = {
-      advanceTime: (currentTime, audioTime, dt) => {
-        setTimeout(() => {
-          callback(currentTime, audioTime);
-        }, Math.ceil(dt * 1000));
-        // make sure the engine will be cleared after one single call
-        return null;
-      },
+    const engine = (currentTime, audioTime, infos) => {
+      setTimeout(() => {
+        const now = this._getTimeFunction();
+        infos._dt = currentTime - now;
+
+        callback(currentTime, audioTime, infos);
+      }, Math.ceil(infos.dt * 1000));
+
+      // clear engine
+      return null;
     };
 
     this.add(engine, time);
@@ -210,8 +229,8 @@ class Scheduler {
    * an `advanceTime(currentTime, audioTime, dt)` method. If the engine has already been added
    * to the scheduler, acts as `reset(engine, time)`
    * @param {function} engine - @todo - document as type
-   * @param {number} time - Time at which the engine should be executed first, in
-   *  the time reference of `getTimeFunction`
+   * @param {number} time - Time inseconds at which the engine should be executed
+   *   first, in the time reference of `getTimeFunction`
    */
   add(engine, time) {
     // compat mode for old waves TimeEngine API
@@ -325,23 +344,23 @@ class Scheduler {
     this._timeoutId = null;
 
     while (queueTime <= tickTime + this.lookahead) {
-
-      // set current time of scheduler to event logical time
-      this._currentTime = queueTime;
-      // grab related audio time if a transfert function has been given
-      const audioTime = this._currentTimeToAudioTimeFunction(queueTime);
-      // delta time between the tick call and the scheduled event
-      const dt = queueTime - tickTime;
       // retreive the engine and advance its time
       const engine = this._queue.head;
       const engineInfos = this._engineTimeCounterMap.get(engine);
 
-      let nextTime = engine(queueTime, audioTime, dt);
+      // set current time of scheduler to event logical time
+      this._currentTime = queueTime;
+      // delta time between the tick call and the scheduled event
+      this._tickInfos._dt = queueTime - tickTime;
+      // grab related audio time if a transfert function has been given
+      const audioTime = this._currentTimeToAudioTimeFunction(queueTime);
+
+      let nextTime = engine(queueTime, audioTime, this._tickInfos);
 
       // Prevent infinite loops:
-      // We don't to enforce that nextTime > time because it can be handy for e.g.
+      // We don't want to enforce that nextTime > time because it can be handy for e.g.
       // playing chords, but this a common source of problems in development, when
-      // such issue completely freezes the browser...
+      // such returned value completely freezes the browser...
       if (nextTime === engineInfos.time) {
         engineInfos.counter += 1;
 
@@ -378,8 +397,8 @@ class Scheduler {
    */
   _resetTick(queueTime, isReschedulingEvent) {
     // @note - we cant compare previous and next time to avoid rescheduling because
-    // timeout is so unstable, e.g. sometimes triggered before it deadline, that it
-    // sometimes just stop the scheduler for no apparent reason
+    // timeout is so unstable, i.e. it is sometimes triggered before its deadline,
+    // therefore stopping the scheduler for no apparent reason
     const previousNextTime = this._nextTime;
     this._nextTime = queueTime;
 
@@ -390,44 +409,45 @@ class Scheduler {
         console.log('[sc-scheduling] > scheduler start');
       }
 
-      const now = this._getTimeFunction();
-      const dt = this._nextTime - now;
-
+      // Notes on attempt to have a synchronous API if dt is 0 or very small:
+      //
+      // setTimeout introduce an error of around 1-2ms we should take into account.
+      // So if _nextTime is within a 10ms window we execute the _tick in a microtask
+      // to minimize the delay, in other cases we can quite safely rely on setTimeout
+      //
+      // if (dt < 0.01) {
+      //   // cf. https://javascript.info/microtask-queue
+      //   Promise.resolve().then(this._tick);
+      // }
+      //
+      // But... this has a lot of undesirable side effects:
+      //
       // Note 1: This is all wrong, if reset tick is called several times in a row, the
-      // set immediate wont be cancelled, then we might have several parallel tick calls
-      // which is bad... So for now let's just accept the delay
+      // set immediate wont be cancelled, then we might end up with several parallel
+      // timeout stacks which is really bad.
       //
       // Note 2: We must stay asynchronous here because if some engine is used to
-      // orchestrate other one behavior (and reset their time), we dont' want to
-      // have an engine behing executed before it returns its next time
+      // orchestrate other ones behavior (and reset their time), we dont' want to
+      // have another engine behing executed before the orchestartor returns its next
+      // time.
       //
       // Note 3: Maybe this advocates for making it all more simple, with a loop
       // that just starts and stop, only reschduling when an event is added with
       // the period
-      //
-      // // old notes
-      // setTimeout introduce an error of around 1-2ms we should take into account.
-      // So if _nextTime is within a 10ms window we execute the _tick in a microtask
-      // to minimize the delay, in other cases we can quite safely rely on setTimeout
-      // if (dt < 0.01) {
-      //   // register microtask, executing synchronously create too much side effects
-      //   // and the delay is mostly the same...
-      //   // cf. https://javascript.info/microtask-queue
-      //   Promise.resolve().then(this._tick);
-      // } else {
 
-      // if its a rescheduling event (add, reset, remove), `queueTime` can be
-      // within the `period` window, so we just clamp the minimum timeout to 1ms
-      // @note: that setTimeout(func, 1), is very noisy and quite often executed
-      // later than setTimeout(func, 1)
+      const now = this._getTimeFunction();
+      const dt = this._nextTime - now;
+      // if this a rescheduling event (i.e. add, reset, remove), `queueTime` can be
+      // within the `period` window, so we just clamp the minimum timeout to 1ms.
+      // Note that setTimeout(func, 0), is very noisy and quite often executed
+      // later than setTimeout(func, 1), cf. tests/setTimeout-setInterval-accuracy.js
       const minimumBound = isReschedulingEvent ? 1e-3 : this.period;
       const timeoutDelay = Math.max(dt - this.lookahead, minimumBound);
+
       this._timeoutId = setTimeout(this._tick, Math.ceil(timeoutDelay * 1000));
-      // }
-    } else if (previousNextTime !== Infinity) {
-      if (this._verbose) {
-        console.log('[sc-scheduling] > scheduler stop');
-      }
+
+    } else if (this._verbose && previousNextTime !== Infinity) {
+      console.log('[sc-scheduling] > scheduler stop');
     }
   }
 }

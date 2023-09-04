@@ -93,10 +93,10 @@ describe('# Scheduler', () => {
       it(`should start immediately if needed`, async () => {
         const scheduler = new Scheduler(getTime);
         const startAt = getTime() + 1e-12;
-        const engine = (currentTime, audioTime, dt) => {
+        const engine = (currentTime, audioTime, infos) => {
           assert.equal(quantize(startAt), currentTime);
-          console.log('> dt is negative, i.e. we are late ~1-2ms):', dt);
-          assert.isBelow(dt, 2e-5); // 0.02ms (~sample duration)
+          console.log('> dt is negative, i.e. we are late ~1-2ms):', infos.dt);
+          assert.isBelow(infos.dt, 2e-5); // 0.02ms (~sample duration)
         };
         scheduler.add(engine, startAt);
         // await sleep(0.1);
@@ -105,9 +105,9 @@ describe('# Scheduler', () => {
       it(`should start in future with given time`, () => {
         const scheduler = new Scheduler(getTime);
         const startAt = getTime() +  0.1;
-        const engine = (currentTime, audioTime, dt) => {
+        const engine = (currentTime, audioTime, infos) => {
           assert.equal(quantize(startAt), currentTime);
-          console.log('> dt (should be ~0.1, i.e.lookahead):', dt);
+          console.log('> dt (should be ~0.1, i.e.lookahead):', infos.dt);
         };
 
         scheduler.add(engine, startAt);
@@ -117,7 +117,7 @@ describe('# Scheduler', () => {
         const scheduler = new Scheduler(getTime);
         let time = getTime() +  0.1;
         let counter = 0;
-        const engine = (currentTime, audioTime, dt) => {
+        const engine = (currentTime, audioTime, infos) => {
           console.log(currentTime);
           assert.equal(quantize(time), currentTime);
 
@@ -141,7 +141,7 @@ describe('# Scheduler', () => {
         const scheduler = new Scheduler(getTime);
         let time = getTime() +  0.1;
         let counter = 0;
-        const engine = (currentTime, audioTime, dt) => {
+        const engine = (currentTime, audioTime, infos) => {
           console.log(currentTime);
           assert.equal(quantize(time), currentTime);
 
@@ -165,7 +165,7 @@ describe('# Scheduler', () => {
         const scheduler = new Scheduler(getTime);
         let time;
         let counter = 0;
-        const engine = (currentTime, audioTime, dt) => {
+        const engine = (currentTime, audioTime, infos) => {
           console.log(currentTime);
           assert.equal(quantize(time), currentTime);
 
@@ -188,7 +188,7 @@ describe('# Scheduler', () => {
         const scheduler = new Scheduler(getTime);
         let time;
         let counter = 0;
-        const engine = (currentTime, audioTime, dt) => {
+        const engine = (currentTime, audioTime, infos) => {
           console.log(currentTime);
           assert.equal(quantize(time), currentTime);
 
@@ -208,6 +208,23 @@ describe('# Scheduler', () => {
         scheduler.clear();
       });
     });
+
+    describe(`defer(callback, time)`, () => {
+      it(`should compensate for dt`, async () => {
+        const scheduler = new Scheduler(getTime);
+        let counter = 1;
+        const engine = (currentTime, audioTime, infos) => {
+          console.log('executed at', getTime());
+          console.log(currentTime, audioTime, infos);
+        }
+
+        const time = getTime() + 0.1;
+        console.log('scheduled at', time);
+        scheduler.defer(engine, time);
+
+        await sleep(0.2);
+      });
+    });
   });
 
   describe('## MISC', () => {
@@ -217,7 +234,7 @@ describe('# Scheduler', () => {
         let time;
         let hasStarted = false;
 
-        const engine = (currentTime, audioTime, dt) => {
+        const engine = (currentTime, audioTime, infos) => {
           console.log('> currentTime:', currentTime);
           assert.equal(quantize(time), currentTime);
           hasStarted = true;
@@ -254,16 +271,16 @@ describe('# Scheduler', () => {
 
         // add at 0.
         let called = false;
-        const engineBg = (currentTime, audioTime, dt) => {
-          console.log('- bg', getTime(), currentTime, dt);
+        const engineBg = (currentTime, audioTime, infos) => {
+          console.log('- bg', getTime(), currentTime, infos.dt);
           return currentTime + 2.2; //
         };
-        const engineA = (currentTime, audioTime, dt) => {
-          console.log('- a', getTime(), currentTime, dt);
+        const engineA = (currentTime, audioTime, infos) => {
+          console.log('- a', getTime(), currentTime, infos.dt);
           return Infinity;
         };
-        const engineB = (currentTime, audioTime, dt) => {
-          console.log('- b (should not be executed)', getTime(), currentTime, dt);
+        const engineB = (currentTime, audioTime, infos) => {
+          console.log('- b (should not be executed)', getTime(), currentTime, infos.dt);
           return Infinity;
         };
 
@@ -290,7 +307,7 @@ describe('# Scheduler', () => {
         const scheduler = new Scheduler(getTime);
         let counter = 0;
 
-        const engine = (currentTime, audioTime, dt) => {
+        const engine = (currentTime, audioTime, infos) => {
           counter += 1;
           return currentTime; // should stop after 100 iterations
         };
@@ -303,7 +320,7 @@ describe('# Scheduler', () => {
       it(`make sure the normal case is working`, async () => {
         const scheduler = new Scheduler(getTime);
         let counter = 0;
-        const engine = (currentTime, audioTime, dt) => {
+        const engine = (currentTime, audioTime, infos) => {
             counter += 1;
             if (counter === 150) {
               return;
