@@ -1,5 +1,6 @@
 .babelrc
 .editorconfig
+.github
 
 docs
 tests
@@ -8,3 +9,5 @@ MTCReceive.js
 MTCSend.js
 
 TODOS.md
+webpack.config.js
+
