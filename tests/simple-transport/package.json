@@ -13,12 +13,9 @@
     "webpack-cli": "^5.0.0"
   },
   "dependencies": {
-    "@ircam/resume-audio-context": "^1.0.2",
+    "@ircam/sc-components": "^3.0.0-alpha.36",
     "@ircam/sc-gettime": "^1.0.0",
-    "@ircam/simple-components": "^2.2.2",
-    "core-js": "^3.26.1",
-    "lit": "^2.4.1",
-    "regenerator-runtime": "^0.13.11"
+    "lit": "^2.4.1"
   },
   "scripts": {
     "build": "webpack --config webpack.config.js",

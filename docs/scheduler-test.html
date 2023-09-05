@@ -1,0 +1,194 @@
+<p><a name="Scheduler"></a></p>
+<h2 id="scheduler">Scheduler</h2>
+<p>The <code>Scheduler</code> interface implement a lookahead scheduler that can be used to
+schedule events in an arbitrary timeline.
+It aims at finding a tradeoff between time precision, real-time responsiveness
+and the weaknesses of the native timers (i.e.setTimeout and setInterval)</p>
+<p>For an in-depth explaination of the pattern, see @link{https://web.dev/audio-scheduling/}</p>
+<h2 id="notes">Notes</h2>
+<ol>
+<li>To mitigate errors introduced by setTimeout (which is around 1ms), events scheduled
+within a 10ms window from current time are executed synchronously, e.g.:</li>
+</ol>
+<pre><code>const now = getTime();
+scheduler.add(engine, now);
+</code></pre>
+<p>will execute the <code>engine.advanceTime</code> synchronously, whild</p>
+<pre><code>const now = getTime();
+scheduler.add(engine, now + 0.02);
+</code></pre>
+<p>will defer the <code>engine.advanceTime</code> in a timeout.</p>
+<p>This can lead in certain rare circumstances to unintuitive behaviour, such as</p>
+<pre><code>const now = getTime();
+scheduler.reset(engine, now); // is executed
+scheduler.remove(engine, now);
+</code></pre>
+<p>while</p>
+<pre><code>const now = getTime();
+scheduler.reset(engine, now + 0.2); // is not executed
+scheduler.remove(engine, now + 0.2);
+</code></pre>
+<ol start="2">
+<li>All times (given to methods, or retrieved by engines) are processed (naive
+quantization at 1e-9) in order to try to mitigate floating point errors. This
+is experimental and may be removed if not conclusive.</li>
+</ol>
+<p><strong>Kind</strong>: global class  </p>
+<ul>
+<li><a href="#Scheduler">Scheduler</a><ul>
+<li><a href="#new_Scheduler_new">new Scheduler(getTimeFunction, [options])</a></li>
+<li><a href="#Scheduler+period">.period</a> : <code>number</code></li>
+<li><a href="#Scheduler+lookahead">.lookahead</a> : <code>number</code></li>
+<li><a href="#Scheduler+currentTime">.currentTime</a> : <code>number</code></li>
+<li><a href="#Scheduler+audioTime">.audioTime</a> : <code>number</code></li>
+<li><a href="#Scheduler+has">.has(engine)</a> ⇒ <code>boolean</code></li>
+<li><a href="#Scheduler+defer">.defer(callback, time)</a></li>
+<li><a href="#Scheduler+add">.add(engine, time)</a></li></ul></li>
+</ul>
+<p><a name="new_Scheduler_new"></a></p>
+<h3 id="newschedulergettimefunctionoptions">new Scheduler(getTimeFunction, [options])</h3>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>getTimeFunction</td>
+<td><code>function</code></td>
+<td></td>
+<td>A function which return a time in seconds  that will define the timeline of the scheduler.</td>
+</tr>
+<tr>
+<td>[options]</td>
+<td><code>object</code></td>
+<td><code>{}</code></td>
+<td>Options of the scheduler</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong>  </p>
+<pre><code class="js language-js">import { Scheduler } from 'waves-masters';
+
+const getTime = () =&gt; new Date().getTime() / 1000;
+const scheduler = new Scheduler(getTime);
+
+const myEngine = (currentTime) {
+  console.log(currentTime);
+  // ask to be called back in 1 second
+  return currentTime + 1;
+}
+
+const startTime = Math.ceil(getTime());
+scheduler.add(myEngine, startTime);
+</code></pre>
+<p><a name="Scheduler+period"></a></p>
+<h3 id="schedulerperiodc8c">scheduler.period : <code>number</code></h3>
+<p>Period at which the scheduler checks for events, in seconds.
+Throws if negative or greater than lookahead.</p>
+<p><strong>Kind</strong>: instance property of <a href="#Scheduler"><code>Scheduler</code></a><br />
+<a name="Scheduler+lookahead"></a></p>
+<h3 id="schedulerlookaheadc10c">scheduler.lookahead : <code>number</code></h3>
+<p>Lookahead duration in seconds.
+Throws if negative or lower than period.</p>
+<p><strong>Kind</strong>: instance property of <a href="#Scheduler"><code>Scheduler</code></a><br />
+<a name="Scheduler+currentTime"></a></p>
+<h3 id="schedulercurrenttimec12c">scheduler.currentTime : <code>number</code></h3>
+<p>Scheduler current logical time.</p>
+<p><strong>Kind</strong>: instance property of <a href="#Scheduler"><code>Scheduler</code></a><br />
+<a name="Scheduler+audioTime"></a></p>
+<h3 id="scheduleraudiotimec14c">scheduler.audioTime : <code>number</code></h3>
+<p>Scheduler current audio time according to <code>currentTime</code></p>
+<p><strong>Kind</strong>: instance property of <a href="#Scheduler"><code>Scheduler</code></a><br />
+<a name="Scheduler+has"></a></p>
+<h3 id="schedulerhasenginec16c">scheduler.has(engine) ⇒ <code>boolean</code></h3>
+<p>Check whether a given engine has been added to this scheduler</p>
+<p><strong>Kind</strong>: instance method of <a href="#Scheduler"><code>Scheduler</code></a>  </p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>engine</td>
+<td><code>object</code></td>
+<td>Engine to test.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="Scheduler+defer"></a></p>
+<h3 id="schedulerdefercallbacktime">scheduler.defer(callback, time)</h3>
+<p>Execute a function once at a given time, compensating for the dt introduced by
+the lookahead. Can be usefull for example to synchronize audio (natively scheduled)
+and visuals which have no internal timing/scheduling ability.
+Be aware that the defer call will introcude small timing error (order of 1-2ms)
+due to the setTimeout.</p>
+<p><strong>Kind</strong>: instance method of <a href="#Scheduler"><code>Scheduler</code></a>  </p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>callback</td>
+<td><code>function</code></td>
+<td>Callback function to schedule.</td>
+</tr>
+<tr>
+<td>time</td>
+<td><code>number</code></td>
+<td>Time at which the callback should be scheduled.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong>  </p>
+<pre><code class="js language-js">const scheduler = new Scheduler(getTime);
+
+scheduler.add((currentTime, audioTime) =&gt; {
+  // schedule some audio event
+  playSomeSoundAt(audioTime);
+  // defer execution of visual display to compensate the dt
+  scheduler.defer(displaySomeSynchronizedStuff, currentTime);
+  // ask the scheduler to call back in 1 second
+  return currentTime + 1;
+});
+</code></pre>
+<p><a name="Scheduler+add"></a></p>
+<h3 id="scheduleraddenginetime">scheduler.add(engine, time)</h3>
+<p>Add a time engine to the scheduler. A valid "time engine" can be any object that implements
+an <code>advanceTime(currentTime, audioTime, dt)</code> method. If the engine has already been added
+to the scheduler, acts as <code>reset(engine, time)</code></p>
+<p><strong>Kind</strong>: instance method of <a href="#Scheduler"><code>Scheduler</code></a>  </p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>engine</td>
+<td><code>function</code></td>
+<td>@todo - document as type</td>
+</tr>
+<tr>
+<td>time</td>
+<td><code>number</code></td>
+<td>Time inseconds at which the engine should be executed   first, in the time reference of <code>getTimeFunction</code></td>
+</tr>
+</tbody>
+</table>

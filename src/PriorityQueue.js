@@ -207,7 +207,7 @@ class PriorityQueue {
       // ±Infinity should always be at the end of the queue, disregarding its sign.
       // Using Number.isFinite also allows us to handle NaN gracefully
       if (Math.abs(time) !== Infinity) {
-        console.warn(`PriorityQueue: entry`, JSON.stringify(entry), `inserted with NaN time: "${time}" (overriden to Infinity). This probably shows an error in your implementation.`);
+        console.warn(`PriorityQueue: time is not a number: "${time}" (overriden to Infinity). This probably shows an error in your implementation.`);
       }
 
       time = this.reverse ? -Infinity : Infinity;

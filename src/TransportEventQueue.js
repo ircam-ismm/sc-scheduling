@@ -14,6 +14,8 @@ export default class TransportControlEventQueue {
     };
 
     this.scheduledEvents = [];
+
+    this._speed = 1;
   }
 
   get next() {
@@ -42,20 +44,19 @@ export default class TransportControlEventQueue {
    * @return {Object|null} event or null if discarded
    */
   add(event) {
-    const state = this.state;
-
     // sanitize events
     if (event.type !== 'play'
       && event.type !== 'pause'
       && event.type !== 'seek'
       && event.type !== 'cancel'
       && event.type !== 'loop'
+      && event.type !== 'speed'
     ) {
       throw new Error(`Invalid event type: "${event.type}"`);
     }
 
     // cannot schedule event in the past
-    if (state && state.time > event.time) {
+    if (this.state && this.state.time > event.time) {
       console.error(`[transportMixin] cannot schedule event in the past, aborting...`);
       return null;
     }
@@ -69,8 +70,7 @@ export default class TransportControlEventQueue {
     }
 
     this.scheduledEvents.push(event);
-    // this could probably be simplified and made more efficient by just
-    // placing the event manually at its right place
+
     this.scheduledEvents.sort((a, b) => {
       if (a.time < b.time) {
         return -1;
@@ -82,15 +82,14 @@ export default class TransportControlEventQueue {
       }
     });
 
-    // remove consecutive events of same type (except seek)
-    let eventType = state.type;
+    // Remove consecutive events of same type (except seek). Note that we want
+    // to keep all `seek`, `loop` and `speed` events.
+    // e.g. in the `play|seek|seek|play` list we want to keep `play|seek|seek`,
+    // the second `play` is redondant
+    let eventType = this.state.type;
 
     this.scheduledEvents = this.scheduledEvents.filter((event, i) => {
-      // We want to keep all `seek` and `loop` events.
-      // We don't need to update `eventType` because if we have:
-      // `play|seek|seek|play` we want to get `play|seek|seek`,
-      // the second `play` being redondant
-      if (event.type === 'seek' || event.type === 'loop') {
+      if (event.type === 'seek' || event.type === 'loop'  || event.type === 'speed') {
         return true;
       } else if (event.type !== eventType) {
         eventType = event.type;
@@ -106,36 +105,34 @@ export default class TransportControlEventQueue {
   }
 
   dequeue() {
-    const currentState = this.state;
-    const nextState = this.next;
+    const event = this.next;
 
-    // update event `position` and `speed` informations according to last event
-    switch (nextState.type) {
+    const nextState = Object.assign({}, this.state);
+    nextState.time = event.time;
+    nextState.position = this.getPositionAtTime(event.time);
+
+    // update state infos according to event
+    switch (event.type) {
       case 'play':
-        nextState.position = this.getPositionAtTime(nextState.time);
-        nextState.speed = 1;
-        nextState.loop = currentState.loop;
+        nextState.speed = this._speed;
         break;
       case 'pause':
-        nextState.position = this.getPositionAtTime(nextState.time);
         nextState.speed = 0;
-        nextState.loop = currentState.loop;
         break;
       case 'seek':
-        nextState.speed = currentState.speed;
-        nextState.loop = currentState.loop;
-        // use position value from the event
+        nextState.position = event.position;
         break;
       case 'loop':
-        nextState.position = this.getPositionAtTime(nextState.time);
-        nextState.speed = currentState.speed;
-        // use loop value from the event
-    }
+        nextState.loop = event.loop;
+        break;
+      case 'speed':
+        this._speed = event.speed;
 
-    // loop start and end values are not modified through events, so we can just
-    // propagate the values on the state
-    nextState.loopStart = currentState.loopStart;
-    nextState.loopEnd = currentState.loopEnd;
+        if (nextState.speed > 0) {
+          nextState.speed = event.speed;
+        }
+        break;
+    }
 
     this.scheduledEvents.shift();
     this.state = nextState;

@@ -14,8 +14,8 @@ export default class Transport {
     }
 
     this.scheduler = scheduler;
-    this._eventQueue = new TransportEventQueue();
 
+    this._eventQueue = new TransportEventQueue();
     this._children = new Map(); // child / originalAdvanceTime
   }
 
@@ -64,7 +64,6 @@ export default class Transport {
     const event = {
       type: 'play',
       time: quantize(time),
-      // `position`, `speed` and `loop` are defined dynamically by queue
     };
 
     return this.addEvent(event);
@@ -77,10 +76,9 @@ export default class Transport {
     const event = {
       type: 'pause',
       time: quantize(time),
-      // `position`, `speed` and `loop` are defined dynamically by queue
     };
 
-    return this.addEvent(event); // return computed event or null
+    return this.addEvent(event);
   }
 
   /**
@@ -91,10 +89,9 @@ export default class Transport {
       type: 'seek',
       time: quantize(time),
       position: position,
-      // `speed`and `loop` are defined dynamically by queue
-    }
+    };
 
-    return this.addEvent(event); // return computed event or null
+    return this.addEvent(event);
   }
 
   /**
@@ -105,10 +102,19 @@ export default class Transport {
       type: 'loop',
       time: quantize(time),
       loop: value,
-      // `speed`and `position` are defined dynamically by queue
-    }
+    };
 
-    this.addEvent(event);
+    return this.addEvent(event);
+  }
+
+  speed(time, value) {
+    const event = {
+      type: 'speed',
+      time: quantize(time),
+      speed: value,
+    };
+
+    return this.addEvent(event);
   }
 
   /**

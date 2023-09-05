@@ -1,7 +1,7 @@
 import { assert } from 'chai';
 import TransportEventQueue from '../src/TransportEventQueue.js';
 
-describe(`TransportEventQueue`, () => {
+describe.only(`TransportEventQueue`, () => {
   describe('#add(event)', () => {
     it(`should check event.type`, () => {
       const queue = new TransportEventQueue();
@@ -141,7 +141,6 @@ describe(`TransportEventQueue`, () => {
       queue.dequeue();
 
       assert.deepEqual(queue.state, {
-        type: 'play',
         time: 0,
         speed: 1,
         position: 0,
@@ -162,7 +161,6 @@ describe(`TransportEventQueue`, () => {
       queue.dequeue();
 
       assert.deepEqual(queue.state, {
-        type: 'pause',
         time: 2,
         speed: 0,
         position: 2,
@@ -183,7 +181,6 @@ describe(`TransportEventQueue`, () => {
       queue.dequeue();
 
       assert.deepEqual(queue.state, {
-        type: 'seek',
         time: 2,
         speed: 0,
         position: 42,
@@ -205,7 +202,6 @@ describe(`TransportEventQueue`, () => {
       queue.dequeue();
 
       assert.deepEqual(queue.state, {
-        type: 'loop',
         time: 4,
         speed: 0,
         position: 42,
@@ -213,6 +209,24 @@ describe(`TransportEventQueue`, () => {
         loopStart: 0,
         loopEnd: Infinity,
       });
+    });
+
+    it(`should handle speed events`, () => {
+      const queue = new TransportEventQueue();
+      queue.add({ type: 'play', time: 0 });
+      queue.add({ type: 'speed', speed: 0.5, time: 0 });
+      queue.dequeue();
+      queue.dequeue();
+
+      assert.equal(queue.getPositionAtTime(0), 0);
+      assert.equal(queue.getPositionAtTime(1), 0.5);
+      assert.equal(queue.getPositionAtTime(2), 1);
+      assert.equal(queue.getPositionAtTime(3), 1.5);
+
+      queue.add({ type: 'speed', speed: 0.25, time: 3 });
+      queue.dequeue();
+
+      assert.equal(queue.getPositionAtTime(4), 1.75);
     });
   });
 

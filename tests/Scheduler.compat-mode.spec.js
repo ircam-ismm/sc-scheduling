@@ -21,7 +21,7 @@ function shouldThrow(test) {
 
 // check Scheduler backward compatibility with waves TimeEngine API
 
-describe('# Scheduler', () => {
+describe('# Scheduler (compat mode)', () => {
   describe('.add(engine, time)', () => {
     it(`should throw if engine is added twice`, () => {
       const scheduler = new Scheduler(getTime);
@@ -131,7 +131,7 @@ describe('# Scheduler', () => {
   });
 
   describe('make sure we can have several of them in parallell', () => {
-    it.only(`should check if engine already in scheduler`, async function() {
+    it(`should check if engine already in scheduler`, async function() {
       this.timeout(5000);
 
       const scheduler = new Scheduler(getTime);

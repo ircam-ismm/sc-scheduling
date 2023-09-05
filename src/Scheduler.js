@@ -7,6 +7,7 @@ import {
   schedulerCompatMode,
 } from './utils.js';
 
+/* @private */
 class SchedulerInfos {
   constructor() {
     this._dt = 0;
@@ -14,7 +15,8 @@ class SchedulerInfos {
 
   /**
    * Delta time between tick time and current time, in seconds
-   * @type Number
+   * @type {Number}
+   * @private
    * @readonly
    */
   get dt() {
@@ -28,55 +30,7 @@ class SchedulerInfos {
  * It aims at finding a tradeoff between time precision, real-time responsiveness
  * and the weaknesses of the native timers (i.e.setTimeout and setInterval)
  *
- * For an in-depth explaination of the pattern, see @link{https://web.dev/audio-scheduling/}
- *
- * ## Notes
- *
- * 1. To mitigate errors introduced by setTimeout (which is around 1ms), events scheduled
- * within a 10ms window from current time are executed synchronously, e.g.:
- * ```
- * const now = getTime();
- * scheduler.add(engine, now);
- * ```
- * will execute the `engine.advanceTime` synchronously, whild
- *
- * ```
- * const now = getTime();
- * scheduler.add(engine, now + 0.02);
- * ```
- * will defer the `engine.advanceTime` in a timeout.
- *
- * This can lead in certain rare circumstances to unintuitive behaviour, such as
- * ```
- * const now = getTime();
- * scheduler.reset(engine, now); // is executed
- * scheduler.remove(engine, now);
- * ```
- * while
- * ```
- * const now = getTime();
- * scheduler.reset(engine, now + 0.2); // is not executed
- * scheduler.remove(engine, now + 0.2);
- * ```
- *
- * 2. All times (given to methods, or retrieved by engines) are processed (naive
- * quantization at 1e-9) in order to try to mitigate floating point errors. This
- * is experimental and may be removed if not conclusive.
- *
- * @example
- * import { Scheduler } from 'waves-masters';
- *
- * const getTime = () => new Date().getTime() / 1000;
- * const scheduler = new Scheduler(getTime);
- *
- * const myEngine = (currentTime) {
- *   console.log(currentTime);
- *   // ask to be called back in 1 second
- *   return currentTime + 1;
- * }
- *
- * const startTime = Math.ceil(getTime());
- * scheduler.add(myEngine, startTime);
+ * For an in-depth explaination of the pattern, see [https://web.dev/audio-scheduling/](https://web.dev/audio-scheduling/s)
  */
 class Scheduler {
   /**
@@ -160,6 +114,7 @@ class Scheduler {
   /**
    * Scheduler current logical time.
    * @type {number}
+   * @readonly
    */
   get currentTime() {
     return this._currentTime || this._getTimeFunction() + this.lookahead;
@@ -168,6 +123,7 @@ class Scheduler {
   /**
    * Scheduler current audio time according to `currentTime`
    * @type {number}
+   * @readonly
    */
   get audioTime() {
     return this._currentTimeToAudioTimeFunction(this.currentTime);
@@ -191,7 +147,8 @@ class Scheduler {
    * Execute a function once at a given time, compensating for the dt introduced by
    * the lookahead. Can be usefull for example to synchronize audio (natively scheduled)
    * and visuals which have no internal timing/scheduling ability.
-   * Be aware that the defer call will introcude small timing error (order of 1-2ms)
+   *
+   * Be aware that the defer call will introduce small timing error (order of 1-2ms)
    * due to the setTimeout.
    *
    * @param {function} callback - Callback function to schedule.

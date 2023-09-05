@@ -68,7 +68,7 @@ const timeline = new Timeline();
 transport.add(timeline);
 
 timeline.add(player);
-timeline.setBoundaries();
+timeline.move(engine, 0, 4);
 
 transport.play(1);
 transport.seek(3, 23.5); // seek at position 23.5

@@ -1,6 +1,6 @@
 import { assert } from 'chai';
 
-import { priorityQueueTimeKey } from '../src/utils.js';
+import { priorityQueueTime } from '../src/utils.js';
 import PriorityQueue from '../src/PriorityQueue.js';
 
 // const queueSize = 20;
@@ -121,8 +121,8 @@ describe(`PriorityQueue - internals`, () => {
       }
     }
     // except if we really want to
-    assert.equal(obj[priorityQueueTimeKey], 0.1);
-    assert.deepEqual(Object.getOwnPropertySymbols(obj), [priorityQueueTimeKey]);
+    assert.equal(obj[priorityQueueTime], 0.1);
+    assert.deepEqual(Object.getOwnPropertySymbols(obj), [priorityQueueTime]);
   });
 
   it(`allow +Infinity to be stored in the queue`, () => {

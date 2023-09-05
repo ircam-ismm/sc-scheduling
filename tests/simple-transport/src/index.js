@@ -1,12 +1,9 @@
-import "core-js/stable";
-import "regenerator-runtime/runtime";
 import { render, html } from 'lit/html.js';
-import { resumeAudioContext } from '@ircam/resume-audio-context';
 import { getTime } from '@ircam/sc-gettime';
 
-import '@ircam/simple-components/sc-bang.js';
-import '@ircam/simple-components/sc-transport.js';
-import './sc-clock.js';
+import '@ircam/sc-components/sc-clock.js';
+import '@ircam/sc-components/sc-number.js';
+import '@ircam/sc-components/sc-transport.js';
 
 import Scheduler from '../../../src/Scheduler.js';
 import Transport from '../../../src/Transport.js';
@@ -18,12 +15,10 @@ console.info('> self.crossOriginIsolated', self.crossOriginIsolated);
   const transport = new Transport(scheduler);;
 
   render(html`
-    <h2>js-prototyping-template</h2>
+    <h2>simple transport</h2>
     <sc-transport
-      buttons="[play, pause, stop]"
-      state="stop"
-      @change="${e => {
-        console.log(e.detail.value);
+      value="stop"
+      @change=${e => {
         switch (e.detail.value) {
           case 'play':
             transport.play(getTime());
@@ -36,13 +31,22 @@ console.info('> self.crossOriginIsolated', self.crossOriginIsolated);
             transport.seek(getTime(), 0);
             break;
         }
-      }}"
+      }}
     ></sc-transport>
+    <sc-number
+      min="0.1"
+      max="5"
+      value="1"
+      @change=${e => transport.speed(getTime(), e.detail.value)}
+    ></sc-number>
+
+    <br />
+    <br />
+
     <sc-clock
-      style="margin: 4px 0; display: block;"
+      style="font-size: 20px; height: 60px; width: 500px;"
       .getTimeFunction=${() => transport.getPositionAtTime(getTime())}
-      font-size="20"
-      twinkle="[0, 0.5]"
+      twinkle
     ></sc-clock>
   `, document.body);
 }());
