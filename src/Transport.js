@@ -17,6 +17,8 @@ export default class Transport {
 
     this._eventQueue = new TransportEventQueue();
     this._children = new Map(); // child / originalAdvanceTime
+
+    this._tick = this._tick.bind(this);
   }
 
   get currentTime() {
@@ -144,13 +146,13 @@ export default class Transport {
 
     // cancel events are applied right now, no need to schedule them
     if (enqueued !== null && enqueued.type !== 'cancel') {
-      if (!this.scheduler.has(this)) {
+      if (!this.scheduler.has(this._tick)) {
         // use logical next as it may not be the same as the enqueued event
         // (not sure this is actually possible, but this doesn't hurt...)
-        this.scheduler.add(this, this._eventQueue.next.time);
+        this.scheduler.add(this._tick, this._eventQueue.next.time);
       } else if (!next || enqueued.time < next.time) {
         // reschedule transport if inserted event is before previous next event
-        this.scheduler.reset(this, enqueued.time);
+        this.scheduler.reset(this._tick, enqueued.time);
       }
     }
 
@@ -165,9 +167,8 @@ export default class Transport {
   //   return quantize(this._eventQueue.getTimeAtPosition(position));
   // }
 
-  advanceTime(currentTime, audioTime, dt) {
+  _tick(currentTime, audioTime, infos) {
     const event = this._eventQueue.dequeue();
-    const currentPosition = event.position;
 
     // propagate transport events to all childrens, so that they can override
     // their next position
@@ -176,7 +177,7 @@ export default class Transport {
       let resetPosition;
 
       try {
-        resetPosition = child.onTransportEvent(event, event.position, audioTime, dt);
+        resetPosition = child.onTransportEvent(event, event.position, audioTime, infos);
       } catch(err) {
         console.log(err);
       }
@@ -198,7 +199,9 @@ export default class Transport {
     }
   }
 
-  // @todo - draft to be completed
+  // @todo
+  // - draft to be completed
+  // - review so that we don't rely on advanceTime
   add(child) {
     if (this._children.has(child)) {
       throw new Error(`already added to transport`);

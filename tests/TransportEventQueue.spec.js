@@ -1,7 +1,7 @@
 import { assert } from 'chai';
 import TransportEventQueue from '../src/TransportEventQueue.js';
 
-describe.only(`TransportEventQueue`, () => {
+describe(`TransportEventQueue`, () => {
   describe('#add(event)', () => {
     it(`should check event.type`, () => {
       const queue = new TransportEventQueue();
