@@ -220,14 +220,22 @@ describe.only(`TransportEventQueue`, () => {
       queue.dequeue();
 
       assert.equal(queue.getPositionAtTime(0), 0);
+      assert.equal(queue.getTimeAtPosition(0), 0);
+
       assert.equal(queue.getPositionAtTime(1), 0.5);
+      assert.equal(queue.getTimeAtPosition(0.5), 1);
+
       assert.equal(queue.getPositionAtTime(2), 1);
+      assert.equal(queue.getTimeAtPosition(1), 2);
+
       assert.equal(queue.getPositionAtTime(3), 1.5);
+      assert.equal(queue.getTimeAtPosition(1.5), 3);
 
       queue.add({ type: 'speed', speed: 0.25, time: 3 });
       queue.dequeue();
 
       assert.equal(queue.getPositionAtTime(4), 1.75);
+      assert.equal(queue.getTimeAtPosition(1.75), 4);
     });
   });
 
