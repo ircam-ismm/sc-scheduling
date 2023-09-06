@@ -1,4 +1,4 @@
-"use strict";(self.webpackChunk_ircam_sc_components_doc=self.webpackChunk_ircam_sc_components_doc||[]).push([[774],{4774:(e,n,t)=>{t.r(n),t.d(n,{enter:()=>a,exit:()=>c,template:()=>d});var o=t(182),i=(t(4670),t(5913));window.audioContext=window.audioContext||null,window.Scheduler=i.b;const a=()=>{},c=()=>{},d=o.dy`
+"use strict";(self.webpackChunk_ircam_sc_components_doc=self.webpackChunk_ircam_sc_components_doc||[]).push([[695],{7695:(e,n,t)=>{t.r(n),t.d(n,{enter:()=>a,exit:()=>c,template:()=>d});var o=t(182),i=(t(4670),t(5913));window.audioContext=window.audioContext||null,window.Scheduler=i.b;const a=()=>{},c=()=>{},d=o.dy`
 <h2>Scheduler - simple demo</h2>
 
 <div class="demo">
