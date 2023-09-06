@@ -180,6 +180,10 @@ export default class TransportControlEventQueue {
       return Infinity;
     }
 
-    return this.state.time + (position - this.state.position) * this.state.speed;
+    if (this.state.speed === 0) {
+      return this.state.time;
+    } else {
+      return this.state.time + (position - this.state.position) / this.state.speed;
+    }
   }
 }
