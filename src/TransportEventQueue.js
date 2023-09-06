@@ -106,8 +106,9 @@ export default class TransportControlEventQueue {
 
   dequeue() {
     const event = this.next;
-
     const nextState = Object.assign({}, this.state);
+
+    nextState.type = event.type;
     nextState.time = event.time;
     nextState.position = this.getPositionAtTime(event.time);
 

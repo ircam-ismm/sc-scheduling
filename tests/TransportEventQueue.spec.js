@@ -137,10 +137,10 @@ describe.only(`TransportEventQueue`, () => {
         type: 'play',
         time: 0,
       });
-
       queue.dequeue();
 
       assert.deepEqual(queue.state, {
+        type: 'play',
         time: 0,
         speed: 1,
         position: 0,
@@ -157,10 +157,10 @@ describe.only(`TransportEventQueue`, () => {
         time: 2,
         speed: 0,
       });
-
       queue.dequeue();
 
       assert.deepEqual(queue.state, {
+        type: 'pause',
         time: 2,
         speed: 0,
         position: 2,
@@ -177,10 +177,10 @@ describe.only(`TransportEventQueue`, () => {
         time: 2,
         position: 42,
       });
-
       queue.dequeue();
 
       assert.deepEqual(queue.state, {
+        type: 'seek',
         time: 2,
         speed: 0,
         position: 42,
@@ -202,6 +202,7 @@ describe.only(`TransportEventQueue`, () => {
       queue.dequeue();
 
       assert.deepEqual(queue.state, {
+        type: 'loop',
         time: 4,
         speed: 0,
         position: 42,
