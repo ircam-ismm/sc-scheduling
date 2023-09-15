@@ -10,8 +10,8 @@
   "main": "./src/index.js",
   "unpkg": "./build/bundle.js",
   "exports": {
-    ".": "src/index.js",
-    "./": "src/"
+    ".": "./src/index.js",
+    "./": "./src/"
   },
   "type": "module",
   "publishConfig": {
