@@ -1,6 +1,6 @@
 {
   "name": "@ircam/sc-scheduling",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Set of abstractions for advanced audio scheduling in Node.js and the browser.",
   "author": [
     "Benjamin Matuszewski",
