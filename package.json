@@ -8,7 +8,7 @@
   ],
   "license": "BSD-3-Clause",
   "main": "./src/index.js",
-  "unpkg": "./build/bundle.js",
+  "unpkg": "./src/index.js",
   "exports": {
     ".": "./src/index.js",
     "./": "./src/"
@@ -31,7 +31,7 @@
     "scheduling"
   ],
   "scripts": {
-    "build": "npx esbuild ./src/index.js --bundle --minify --outfile=build/bundle.js",
+    "build": "npx esbuild ./src/index.js --bundle --minify --format=esm --outfile=build/bundle.js",
     "preversion": "npm run build",
     "doc": "cd docs && npm run dev",
     "doc:prod": "cd docs && npm run build:prod",
