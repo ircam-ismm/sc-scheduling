@@ -7,8 +7,7 @@
     "Norbert Schnell"
   ],
   "license": "BSD-3-Clause",
-  "main": "./src/index.js",
-  "unpkg": "./src/index.js",
+  "unpkg": "./build/bundle.js",
   "exports": {
     ".": "./src/index.js",
     "./": "./src/"
