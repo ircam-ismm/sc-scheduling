@@ -1,10 +1,12 @@
-import cloneDeep from 'clone-deep';
 import { isNumber } from '@ircam/sc-utils';
 
 import { quantize } from './utils.js';
 import Scheduler from './Scheduler.js';
 import TransportEventQueue from './TransportEventQueue.js';
 
+function cloneDeep(obj) {
+  JSON.parse(JSON.stringify(obj));
+}
 
 export default class Transport {
   constructor(scheduler) {
