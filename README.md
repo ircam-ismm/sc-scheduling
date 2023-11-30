@@ -1,4 +1,4 @@
-# `@ircam/sc-scheduling`
+# sc-scheduling
 
 _Warning: this library is in development_
 
