@@ -5,7 +5,7 @@ import Scheduler from './Scheduler.js';
 import TransportEventQueue from './TransportEventQueue.js';
 
 function cloneDeep(obj) {
-  JSON.parse(JSON.stringify(obj));
+  return JSON.parse(JSON.stringify(obj));
 }
 
 export default class Transport {
@@ -39,6 +39,7 @@ export default class Transport {
 
   // retrieves the full state of the event queue (i.e. state and scheduled events)
   getState() {
+    // @todo - replace with proper class with getters
     return {
       currentState: cloneDeep(this._eventQueue.state),
       scheduledEvents: cloneDeep(this._eventQueue.scheduledEvents),

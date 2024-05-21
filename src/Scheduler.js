@@ -30,7 +30,7 @@ class SchedulerInfos {
  * It aims at finding a tradeoff between time precision, real-time responsiveness
  * and the weaknesses of the native timers (i.e.setTimeout and setInterval)
  *
- * For an in-depth explaination of the pattern, see [https://web.dev/audio-scheduling/](https://web.dev/audio-scheduling/s)
+ * For an in-depth explaination of the pattern, see [https://web.dev/audio-scheduling/](https://web.dev/audio-scheduling/)
  */
 class Scheduler {
   /**

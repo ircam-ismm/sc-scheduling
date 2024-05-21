@@ -40,6 +40,7 @@
     "@ircam/sc-components": "^3.0.0-alpha.31",
     "@ircam/sc-gettime": "^1.0.1",
     "chai": "^4.3.7",
+    "esbuild": "^0.19.8",
     "jsdoc-to-markdown": "^8.0.0",
     "json5": "^2.2.3",
     "lit": "^2.8.0",
