@@ -30,11 +30,12 @@
     "scheduling"
   ],
   "scripts": {
+    "api": "jsdoc-to-readme --src src/index.js",
     "build": "npx esbuild ./src/index.js --bundle --minify --format=esm --outfile=build/bundle.js",
+    "doc": "npm run api && npm run toc",
     "preversion": "npm run build",
-    "doc": "cd docs && npm run dev",
-    "doc:prod": "cd docs && npm run build:prod",
-    "test": "mocha"
+    "test": "mocha",
+    "toc": "markdown-toc -i README.md --maxdepth 3"
   },
   "devDependencies": {
     "@ircam/sc-components": "^3.0.0-alpha.31",
@@ -42,8 +43,10 @@
     "chai": "^4.3.7",
     "esbuild": "^0.19.8",
     "jsdoc-to-markdown": "^8.0.0",
+    "jsdoc-to-readme": "^2.0.2",
     "json5": "^2.2.3",
     "lit": "^2.8.0",
+    "markdown-toc": "^1.2.0",
     "mocha": "^10.1.0",
     "npm-run-all": "^4.1.5",
     "serve": "^14.2.0",

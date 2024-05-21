@@ -29,10 +29,8 @@ export function quantize(val, precision = 1e-9) {
   return Math.round(val / precision) * precision;
 }
 
-export const identity = t => t;
+export function cloneDeep(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
 
-// symbols
-export const priorityQueueTime = Symbol.for('sc-scheduling:queue-time');
-export const schedulerInstance = Symbol.for('sc-scheduling:scheduler');
-// for backward compatibility with waves engines
-export const schedulerCompatMode = Symbol.for('sc-scheduling:compat-mode');
+export const identity = t => t;

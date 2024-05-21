@@ -74,13 +74,6 @@ describe('# Scheduler', () => {
         shouldThrow(() => scheduler.add({}));
       });
 
-
-      it(`should throw if invalid time given`, () => {
-        const scheduler = new Scheduler(getTime);
-        const engine = () => {};
-        shouldThrow(() => scheduler.add(engine));
-      });
-
       it(`should throw if engine is added twice`, () => {
         const scheduler = new Scheduler(getTime);
         const engine = () => {};

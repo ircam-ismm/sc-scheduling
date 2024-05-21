@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-// import jsdoc2md from 'jsdoc-to-markdown';
 import showdown from 'showdown';
 import * as documentation from 'documentation';
 

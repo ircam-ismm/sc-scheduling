@@ -1,4 +1,4 @@
-import { quantize, priorityQueueTime } from './utils.js';
+import { quantize } from './utils.js';
 
 // works by reference
 function swap(arr, i1, i2) {
@@ -6,6 +6,9 @@ function swap(arr, i1, i2) {
   arr[i1] = arr[i2];
   arr[i2] = tmp;
 }
+
+// export for tests
+export const kPriorityQueueTime = Symbol('sc-scheduling:queue-time');
 
 /**
  * Define if `time1` should be lower in the topography than `time2`.
@@ -90,7 +93,7 @@ class PriorityQueue {
    */
   get time() {
     if (this._currentLength > 1) {
-      return this._heap[1][priorityQueueTime];
+      return this._heap[1][kPriorityQueueTime];
     }
 
     return Infinity;
@@ -144,7 +147,7 @@ class PriorityQueue {
     let parentIndex = Math.floor(index / 2);
     let parent = this._heap[parentIndex];
 
-    while (parent && this._isHigher(entry[priorityQueueTime], parent[priorityQueueTime])) {
+    while (parent && this._isHigher(entry[kPriorityQueueTime], parent[kPriorityQueueTime])) {
       swap(this._heap, index, parentIndex);
 
       index = parentIndex;
@@ -167,14 +170,14 @@ class PriorityQueue {
     let child1 = this._heap[c1index];
     let child2 = this._heap[c2index];
 
-    while ((child1 && this._isLower(entry[priorityQueueTime], child1[priorityQueueTime])) ||
-           (child2 && this._isLower(entry[priorityQueueTime], child2[priorityQueueTime])))
+    while ((child1 && this._isLower(entry[kPriorityQueueTime], child1[kPriorityQueueTime])) ||
+           (child2 && this._isLower(entry[kPriorityQueueTime], child2[kPriorityQueueTime])))
     {
       // swap with the minimum child
       let targetIndex;
 
       if (child2)
-        targetIndex = this._isHigher(child1[priorityQueueTime], child2[priorityQueueTime])
+        targetIndex = this._isHigher(child1[kPriorityQueueTime], child2[kPriorityQueueTime])
           ? c1index : c2index;
       else
         targetIndex = c1index;
@@ -229,7 +232,7 @@ class PriorityQueue {
   add(entry, time) {
     time = this._sanitizeTime(time);
 
-    entry[priorityQueueTime] = time;
+    entry[kPriorityQueueTime] = time;
     // add the new entry at the end of the heap
     this._heap[this._currentLength] = entry;
     // bubble it up
@@ -251,11 +254,11 @@ class PriorityQueue {
     if (index !== -1) {
       time = this._sanitizeTime(time);
 
-      entry[priorityQueueTime] = time;
+      entry[kPriorityQueueTime] = time;
       // define if the entry should be bubbled up or down
       const parent = this._heap[Math.floor(index / 2)];
 
-      if (parent && this._isHigher(time, parent[priorityQueueTime]))
+      if (parent && this._isHigher(time, parent[kPriorityQueueTime]))
         this._bubbleUp(index);
       else
         this._bubbleDown(index);
@@ -293,7 +296,7 @@ class PriorityQueue {
           const entry = this._heap[index];
           const parent = this._heap[Math.floor(index / 2)];
 
-          if (parent && this._isHigher(entry[priorityQueueTime], parent[priorityQueueTime]))
+          if (parent && this._isHigher(entry[kPriorityQueueTime], parent[kPriorityQueueTime]))
             this._bubbleUp(index);
           else
             this._bubbleDown(index);
@@ -301,7 +304,7 @@ class PriorityQueue {
       }
 
       // delete symbol key
-      delete entry[priorityQueueTime];
+      delete entry[kPriorityQueueTime];
       // update current length
       this._currentLength = lastIndex;
     }
@@ -315,7 +318,7 @@ class PriorityQueue {
   clear() {
     // clear symbol from each entry
     for (let i = 1; i < this._currentLength; i++) {
-      delete this._heap[i][priorityQueueTime];
+      delete this._heap[i][kPriorityQueueTime];
     }
 
     this._currentLength = 1;

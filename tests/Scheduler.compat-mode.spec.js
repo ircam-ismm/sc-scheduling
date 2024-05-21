@@ -3,7 +3,8 @@ import { getTime } from '@ircam/sc-gettime';
 import { sleep } from '@ircam/sc-utils';
 
 import Scheduler from '../src/Scheduler.js';
-import { schedulerCompatMode, quantize } from '../src/utils.js';
+import { kSchedulerCompatMode } from '../src/Scheduler.js';
+import { quantize } from '../src/utils.js';
 
 function shouldThrow(test) {
   let failed = false;
@@ -53,8 +54,8 @@ describe('# Scheduler (compat mode)', () => {
       await sleep(0.7);
       scheduler.remove(engine);
       // clean both entries from scheduler and priority queue
-      // console.log(Object.getOwnPropertySymbols(engine[schedulerCompatMode]));
-      assert.equal(Object.getOwnPropertySymbols(engine[schedulerCompatMode]).length, 0);
+      // console.log(Object.getOwnPropertySymbols(engine[kSchedulerCompatMode]));
+      assert.equal(Object.getOwnPropertySymbols(engine[kSchedulerCompatMode]).length, 0);
     });
   });
 
@@ -104,7 +105,7 @@ describe('# Scheduler (compat mode)', () => {
       scheduler.clear();
 
       // check the schedulerInstance is clean
-      assert.equal(Object.getOwnPropertySymbols(engine[schedulerCompatMode]).length, 0);
+      assert.equal(Object.getOwnPropertySymbols(engine[kSchedulerCompatMode]).length, 0);
 
       // make sure we can add the engine back to the scheduler
       scheduler.add(engine, time + 1);
