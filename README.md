@@ -158,7 +158,7 @@ Returns **[boolean][19]**&#x20;
 
 ### defer
 
-Execute a function once at a given time,
+Execute a function once at a given time.
 
 Calling `defer` compensates with a `setTimeout` for the tick lookahead
 introduced by the scheduling. Can be usefull for example to synchronize
