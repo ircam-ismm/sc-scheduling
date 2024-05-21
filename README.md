@@ -2,32 +2,6 @@
 
 Simple library to schedule events in Node.js and the browser.
 
-<!-- toc -->
-
-- [Install](#install)
-- [Example Use](#example-use)
-- [Notes](#notes)
-- [Terminology](#terminology)
-- [API](#api)
-  * [Table of Contents](#table-of-contents)
-- [SchedulerInfos](#schedulerinfos)
-  * [tickLookahead](#ticklookahead)
-- [Scheduler](#scheduler)
-  * [Parameters](#parameters)
-  * [period](#period)
-  * [lookahead](#lookahead)
-  * [currentTime](#currenttime)
-  * [audioTime](#audiotime)
-  * [has](#has)
-  * [defer](#defer)
-  * [add](#add)
-  * [reset](#reset)
-  * [remove](#remove)
-  * [clear](#clear)
-- [License](#license)
-
-<!-- tocstop -->
-
 ## Install
 
 ```
@@ -49,6 +23,32 @@ schedule.add(currentTime => {
   return currentTime + 1;
 });
 ```
+
+## Table of Content
+
+<!-- toc -->
+
+- [Notes](#notes)
+- [Terminology](#terminology)
+- [API](#api)
+  * [Table of Contents](#table-of-contents)
+- [SchedulerInfos](#schedulerinfos)
+  * [tickLookahead](#ticklookahead)
+- [Scheduler](#scheduler)
+  * [Parameters](#parameters)
+  * [period](#period)
+  * [lookahead](#lookahead)
+  * [currentTime](#currenttime)
+  * [audioTime](#audiotime)
+  * [has](#has)
+  * [defer](#defer)
+  * [add](#add)
+  * [reset](#reset)
+  * [remove](#remove)
+  * [clear](#clear)
+- [License](#license)
+
+<!-- tocstop -->
 
 ## Notes
 
