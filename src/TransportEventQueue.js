@@ -5,6 +5,7 @@
 export default class TransportControlEventQueue {
   constructor() {
     this.state = {
+      eventType: null,
       time: 0,
       position: 0,
       speed: 0,
@@ -12,31 +13,15 @@ export default class TransportControlEventQueue {
       loopStart: 0,
       loopEnd: Infinity,
     };
+    this.previousState = null;
 
     this.scheduledEvents = [];
 
-    this._speed = 1;
+    this.speed = 1;
   }
 
   get next() {
     return this.scheduledEvents[0] || null;
-  }
-
-  // attributes of the event queue that don't need to be changed by timed events (tbc)
-  get loopStart() {
-    return this.state.loopStart;
-  }
-
-  set loopStart(value) {
-    this.state.loopStart = value;
-  }
-
-  get loopEnd() {
-    return this.state.loopStart;
-  }
-
-  set loopEnd(value) {
-    this.state.loopEnd = value;
   }
 
   /**
@@ -49,15 +34,18 @@ export default class TransportControlEventQueue {
       && event.type !== 'pause'
       && event.type !== 'seek'
       && event.type !== 'cancel'
-      && event.type !== 'loop'
       && event.type !== 'speed'
+      && event.type !== 'loop'
+      && event.type !== 'loop-start'
+      && event.type !== 'loop-end'
+      && event.type !== 'loop-point' // automatically inserted by Transport
     ) {
       throw new Error(`Invalid event type: "${event.type}"`);
     }
 
     // cannot schedule event in the past
     if (this.state && this.state.time > event.time) {
-      console.error(`[transportMixin] cannot schedule event in the past, aborting...`);
+      console.error(`Connot add event in TransportEventQueue: trying to schedule an event in the past, aborting...`);
       return null;
     }
 
@@ -86,10 +74,16 @@ export default class TransportControlEventQueue {
     // to keep all `seek`, `loop` and `speed` events.
     // e.g. in the `play|seek|seek|play` list we want to keep `play|seek|seek`,
     // the second `play` is redondant
-    let eventType = this.state.type;
+    let eventType = this.state.eventType;
 
     this.scheduledEvents = this.scheduledEvents.filter((event, i) => {
-      if (event.type === 'seek' || event.type === 'loop'  || event.type === 'speed') {
+      // do not dedup these events
+      if (event.type === 'seek'
+        || event.type === 'loop'
+        || event.type === 'loop-start'
+        || event.type === 'loop-end'
+        || event.type === 'speed'
+      ) {
         return true;
       } else if (event.type !== eventType) {
         eventType = event.type;
@@ -115,7 +109,7 @@ export default class TransportControlEventQueue {
     // update state infos according to event
     switch (event.type) {
       case 'play':
-        nextState.speed = this._speed;
+        nextState.speed = this.speed;
         break;
       case 'pause':
         nextState.speed = 0;
@@ -126,8 +120,14 @@ export default class TransportControlEventQueue {
       case 'loop':
         nextState.loop = event.loop;
         break;
+      case 'loop-start':
+        nextState.loopStart = event.loopStart;
+        break;
+      case 'loop-end':
+        nextState.loopEnd = event.loopEnd;
+        break;
       case 'speed':
-        this._speed = event.speed;
+        this.speed = event.speed;
 
         if (nextState.speed > 0) {
           nextState.speed = event.speed;
@@ -136,7 +136,36 @@ export default class TransportControlEventQueue {
     }
 
     this.scheduledEvents.shift();
+    // @todo - we may use this to mitigate some lookahead issue w/ getPositionAtTime
+    // i.e. asking for getPositionAtTime(currentTime) while dequeue as already been called
+    // this.previousState = this.state;
     this.state = nextState;
+
+    // clear any existing loop point
+    this.scheduledEvents = this.scheduledEvents.filter(event => event.type !== 'loop-point');
+    // reschedule loop-point event if needed
+    if (this.state.loop && this.state.speed > 0) {
+      // insert loop-point event in timeline according to what we know, if state
+      // change in between the loop-point be reinserted at its right position.
+      if (this.state.eventType === 'loop-point') {
+        const event = {
+          type: 'loop-point',
+          time: this.state.time + (this.state.loopEnd - this.state.loopStart),
+          position: this.state.loopEnd, // or loop start, this is arbitrary
+        }
+
+        this.add(event);
+      } else if (this.state.position < this.state.loopEnd) {
+        const event = {
+          type: 'loop-point',
+          time: this.getTimeAtPosition(this.state.loopEnd),
+          position: this.state.loopEnd, // or loop start, this is arbitrary
+        }
+
+        this.add(event);
+      }
+      // if current position is after loop end, do nothing
+    }
 
     return Object.assign({}, this.state);
   }
@@ -155,25 +184,24 @@ export default class TransportControlEventQueue {
 
     // apply loop if needed
     if (state.loop && position >= state.loopEnd) {
-      position -= state.loopStart;
-      position = position % (state.loopEnd - state.loopStart);
-      position += state.loopStart;
+      position = position - state.loopStart;
+      const diff = position % (state.loopEnd - state.loopStart);
+      position = state.loopStart + diff;
 
       // update the time, and position of the state so that `getTimeAtPosition`
       // stays coherent for the engines added to the transport
-      const diff = position - state.loopStart;
       state.time = time - diff;
       state.position = state.loopStart;
 
       // if the state position is greater than loop start (e.g. if we pause in
       // the middle of the loop), loop start should be used as the lower boundary.
-      lowerBoundary = Math.min(state.position, this.loopStart);
+      lowerBoundary = Math.min(state.position, state.loopStart);
     }
 
     return Math.max(position, lowerBoundary);
   }
 
-  // return estimated time at position according to state event informations
+  // return estimated time accroding to an event and position
   getTimeAtPosition(position) {
     // Infinity * 0 give NaN so handle Infinity separately
     if (!Number.isFinite(position)) {
