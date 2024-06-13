@@ -1,41 +1,20 @@
-import { isFunction, isNumber } from '@ircam/sc-utils';
+import {
+  isFunction,
+  isNumber,
+} from '@ircam/sc-utils';
 
 import PriorityQueue from './PriorityQueue.js';
+import SchedulerInfos, {
+  kTickLookahead,
+} from './SchedulerInfos.js';
 import {
   identity,
 } from './utils.js';
 
-const kTickLookahead = Symbol('sc-scheduling:tick-lookahead');
 const kSchedulerInstance = Symbol('sc-scheduling:scheduler');
 // export for tests
 export const kSchedulerCompatMode = Symbol('sc-scheduling:compat-mode');
 
-/**
- * Scheduler information provided as third argument of a callback registered
- * in the scheduler
- */
-class SchedulerInfos {
-  constructor() {
-    this[kTickLookahead] = 0;
-  }
-
-  /**
-   * Delta time between tick time and current time, in seconds
-   * @type {Number}
-   * @private
-   */
-  get dt() {
-    return this[kTickLookahead];
-  }
-
-  /**
-   * Delta time between tick time and current time, in seconds
-   * @type {Number}
-   */
-  get tickLookahead() {
-    return this[kTickLookahead];
-  }
-}
 
 /**
  * The `Scheduler` interface implements a lookahead scheduler that can be used to
@@ -271,6 +250,7 @@ class Scheduler {
     }
     // ----------------------------------------
 
+    // @todo - split errors
     if (engine[kSchedulerInstance] !== undefined && engine[kSchedulerInstance] !== this) {
       throw new Error(`[sc-scheduler] Engine cannot be reset on this scheduler, it has been added to another scheduler`);
     }
@@ -279,7 +259,7 @@ class Scheduler {
       time = Math.max(time, this.#currentTime);
       this.#queue.move(engine, time);
     } else {
-      this._remove(engine);
+      this.#remove(engine);
     }
 
     const nextTime = this.#queue.time;
@@ -304,7 +284,7 @@ class Scheduler {
       throw new Error(`[sc-scheduler] Engine cannot be removed from this scheduler, it has been added to another scheduler`);
     }
 
-    this._remove(engine);
+    this.#remove(engine);
 
     const nextTime = this.#queue.time;
     this.#resetTick(nextTime, true);
@@ -325,7 +305,7 @@ class Scheduler {
     this.#resetTick(Infinity, false);
   }
 
-  _remove(engine) {
+  #remove(engine) {
     delete engine[kSchedulerInstance];
     // remove from array and queue
     this.#queue.remove(engine);
@@ -333,7 +313,6 @@ class Scheduler {
     this.#engineTimeCounterMap.delete(engine);
   }
 
-  /** @private */
   #tick() {
     const tickTime = this.#getTimeFunction();
     let queueTime = this.#queue.time;
@@ -373,11 +352,11 @@ class Scheduler {
       if (isNumber(nextTime)) {
         this.#queue.move(engine, nextTime);
       } else {
-        // we don't want to reset the tick here
-        this._remove(engine);
+        // we don't need to reset the tick here
+        this.#remove(engine);
       }
 
-      // grab net event time in queue
+      // grab next event time in queue
       queueTime = this.#queue.time;
     }
 

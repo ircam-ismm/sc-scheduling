@@ -88,8 +88,8 @@ describe('# Scheduler', () => {
         const startAt = getTime() + 1e-12;
         const engine = (currentTime, audioTime, infos) => {
           assert.equal(quantize(startAt), currentTime);
-          console.log('> dt is negative, i.e. we are late ~1-2ms):', infos.dt);
-          assert.isBelow(infos.dt, 2e-5); // 0.02ms (~sample duration)
+          console.log('> dt is negative, i.e. we are late ~1-2ms):', infos.tickLookahead);
+          assert.isBelow(infos.tickLookahead, 2e-5); // 0.02ms (~sample duration)
         };
         scheduler.add(engine, startAt);
         // await sleep(0.1);
@@ -100,13 +100,13 @@ describe('# Scheduler', () => {
         const startAt = getTime() +  0.1;
         const engine = (currentTime, audioTime, infos) => {
           assert.equal(quantize(startAt), currentTime);
-          console.log('> dt (should be ~0.1, i.e.lookahead):', infos.dt);
+          console.log('> dt (should be ~0.1, i.e.lookahead):', infos.tickLookahead);
         };
 
         scheduler.add(engine, startAt);
       });
 
-      it(`should start loop if engine returns value`, async () => {
+      it(`engine should be called back if engine returns value`, async () => {
         const scheduler = new Scheduler(getTime);
         let time = getTime() +  0.1;
         let counter = 0;
@@ -265,15 +265,15 @@ describe('# Scheduler', () => {
         // add at 0.
         let called = false;
         const engineBg = (currentTime, audioTime, infos) => {
-          console.log('- bg', getTime(), currentTime, infos.dt);
+          console.log('- bg', getTime(), currentTime, infos.tickLookahead);
           return currentTime + 2.2; //
         };
         const engineA = (currentTime, audioTime, infos) => {
-          console.log('- a', getTime(), currentTime, infos.dt);
+          console.log('- a', getTime(), currentTime, infos.tickLookahead);
           return Infinity;
         };
         const engineB = (currentTime, audioTime, infos) => {
-          console.log('- b (should not be executed)', getTime(), currentTime, infos.dt);
+          console.log('- b (should not be executed)', getTime(), currentTime, infos.tickLookahead);
           return Infinity;
         };
 
