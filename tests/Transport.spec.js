@@ -5,6 +5,22 @@ import Transport from '../src/Transport.js';
 import TransportEvent from '../src/TransportEvent.js';
 import Scheduler from '../src/Scheduler.js';
 
+/**
+ * # TODOS
+ *
+ * - [ ] add(engine)
+ *   // what happens if transport is started?
+ * - [ ] has(engine)
+ * - [ ] remove(engine)
+ * - [x] loop
+ * - [x] speed
+ * - [x] cancel
+ * - [ ] controls / addEvent -> slave one transport to another one
+ * - [ ] getState / setState -> slave one transport to an existing one
+ * - [ ] addEvent -> remote control
+ * - [ ] engine respond to TransportEvent in the past
+ */
+
 describe(`# Transport`, () => {
   describe('## constructor', () => {
     it(`should throw if argument 1 is not an instance of Scheduler`, () => {
@@ -17,16 +33,29 @@ describe(`# Transport`, () => {
     });
   });
 
-  describe('## play(time)', () => {
+  describe('## start(time)', () => {
     it('should throw if argument 1 is not a positive number', () => {
       const scheduler = new Scheduler(getTime);
       const transport = new Transport(scheduler);
 
-      assert.throws(() => transport.play());
-      assert.throws(() => transport.play({}));
-      assert.throws(() => transport.play(null));
-      assert.throws(() => transport.play(-1));
-      transport.play(0);
+      assert.throws(() => transport.start());
+      assert.throws(() => transport.start({}));
+      assert.throws(() => transport.start(null));
+      assert.throws(() => transport.start(-1));
+      transport.start(0);
+    });
+  });
+
+  describe('## stop(time)', () => {
+    it('should throw if argument 1 is not a positive number', () => {
+      const scheduler = new Scheduler(getTime);
+      const transport = new Transport(scheduler);
+
+      assert.throws(() => transport.stop());
+      assert.throws(() => transport.stop({}));
+      assert.throws(() => transport.stop(null));
+      assert.throws(() => transport.stop(-1));
+      transport.stop(0);
     });
   });
 
@@ -89,14 +118,14 @@ describe(`# Transport`, () => {
 
 
   describe('## loopStart(time, position)', () => {
-    it.skip(`should throw if value is not a positive number`, () => {
+    it(`should throw if value is not a positive number`, () => {
       const scheduler = new Scheduler(getTime);
       const transport = new Transport(scheduler);
 
-      assert.throws(() => transport.loopStart = -1);
-      assert.throws(() => transport.loopStart = null);
+      assert.throws(() => transport.loopStart(0, -1));
+      assert.throws(() => transport.loopStart(0, null));
 
-      transport.loopStart = 0;
+      transport.loopStart(0, 0);
     });
 
     it.skip(`should throw if given value is greater than or equal to loopEnd`, () => {
@@ -110,18 +139,18 @@ describe(`# Transport`, () => {
     });
   });
 
-  describe.skip('## loopEnd(time, position)', () => {
+  describe('## loopEnd(time, position)', () => {
     it(`should throw if value is not a positive number`, () => {
       const scheduler = new Scheduler(getTime);
       const transport = new Transport(scheduler);
 
-      assert.throws(() => transport.loopEnd = -1);
-      assert.throws(() => transport.loopEnd = null);
+      assert.throws(() => transport.loopEnd(0, -1));
+      assert.throws(() => transport.loopEnd(0, null));
 
-      transport.loopEnd = 1;
+      transport.loopEnd(0, 1);
     });
 
-    it(`should throw if given value is lower than or equal to loopStart`, () => {
+    it.skip(`should throw if given value is lower than or equal to loopStart`, () => {
       const scheduler = new Scheduler(getTime);
       const transport = new Transport(scheduler);
 
@@ -206,23 +235,39 @@ describe(`# Transport`, () => {
     });
   });
 
-  describe.only('## Behaviour', () => {
-    it(`[TransportEvents] play at 0, seek at 23.5, pause at 24.5, seek at 0, play`, async function() {
+  describe('## clear()', () => {
+    it(`should throw if has not been added to transport`, async () => {
+      const scheduler = new Scheduler(getTime);
+      const transport = new Transport(scheduler);
+      // this does not respond to TransportEvent but should be stopped nonetheless
+      const engine = position => position += 0.01;
+
+      transport.add(engine);
+      transport.start(getTime());
+
+      await delay(1000);
+      // the test should just exit properly
+      transport.clear();
+    });
+  });
+
+  describe('## Behaviour', () => {
+    it(`start at 0, seek at 23.5, pause at 24.5, seek at 0, start`, async function() {
       this.timeout(6 * 1000);
 
-      return new Promise(resolve => {
+      return new Promise(async resolve => {
         const scheduler = new Scheduler(() => getTime());
         const transport = new Transport(scheduler);
 
         const now = getTime();
 
         const expectedEvents = [
-          { type: 'play', position: 0, speed: 1, time: now + 1 },
+          { type: 'start', position: 0, speed: 1, time: now + 1 },
           { type: 'seek', position: 23.5, speed: 1, time: now + 2 },
           { type: 'pause', position: 24.5, speed: 0, time: now + 3 },
           { type: 'seek', position: 0, speed: 0, time: now + 3 },
           // this one wont be precise because of the of the setTimeout
-          { type: 'play', position: 0, speed: 1, time: now + 4 },
+          { type: 'start', position: 0, speed: 1, time: now + 4 },
         ];
 
         let index = 0;
@@ -234,7 +279,7 @@ describe(`# Transport`, () => {
           assert.equal(event.position, expected.position);
           assert.equal(event.speed, expected.speed);
 
-          // The last 'play' event wont be very precise because of the `setTimeout`
+          // The last 'start' event wont be very precise because of the `setTimeout`
           if (index < 4) {
             assert.isBelow(Math.abs(event.time - expected.time), 1e-9);
           } else {
@@ -250,22 +295,50 @@ describe(`# Transport`, () => {
 
         transport.add(engine);
         // Support
-        transport.play(now + 1);
+        transport.start(now + 1);
         transport.seek(now + 2, 23.5); // seek at position 23.5
         // stop and seek to zero
         transport.pause(now + 3);
         transport.seek(now + 3, 0);
 
-        setTimeout(() => {
-          transport.play(getTime());
-        }, 4 * 1000);
+        await delay(4000);
+
+        transport.start(getTime());
       });
     });
 
+    it(`start / stop / start / stop`, async function() {
+      this.timeout(6000);
+
+      const scheduler = new Scheduler(() => getTime());
+      const transport = new Transport(scheduler);
+
+      const now = getTime();
+
+      const engine = (position, time, infos) => {
+        if (infos instanceof TransportEvent) {
+          console.log('[TransportEvent]', infos);
+          return infos.speed > 0 ? position : Infinity;
+        }
+
+        console.log('[Scheduler tick]', position);
+        return position + 0.1;
+      };
+
+      transport.add(engine);
+      // Support
+      transport.start(now);
+      transport.stop(now + 1)
+      // stop and seek to zero
+      transport.start(now + 2);
+      transport.stop(now + 3);
+
+      await delay(4000);
+    });
 
     it(`should properly call engine with generic scheduler events -
-            play from 0 to 1, pause 1sec, play from 1 to 2, seek to 10, play from 10 to 11, pause `, async function() {
-      this.timeout(8000);
+            start from 0 to 1, pause 1sec, start from 1 to 2, seek to 10, start from 10 to 11, pause `, async function() {
+      this.timeout(6000);
 
       const scheduler = new Scheduler(getTime);
       const transport = new Transport(scheduler);
@@ -284,65 +357,65 @@ describe(`# Transport`, () => {
       transport.add(engine);
 
       const now = getTime();
-      // play from 0 to 1
-      transport.play(now);
+      // start from 0 to 1
+      transport.start(now);
       transport.pause(now + 1);
-      // play from 1 to 2
-      transport.play(now + 2);
-      // play seek at 10 while continue playing
+      // start from 1 to 2
+      transport.start(now + 2);
+      // start seek at 10 while continue starting
       transport.seek(now + 3, 10);
-      transport.pause(now + 4);
+      transport.stop(now + 4);
 
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await delay(5000);
     });
 
-    it.only(`start at 0, loop between 1 and 2`, async function() {
-      this.timeout(8000);
+    it(`start at 0, loop between 1 and 2`, async function() {
+      this.timeout(6000);
 
       const scheduler = new Scheduler(getTime);
       const transport = new Transport(scheduler);
 
+      // make sure transport event are always triggered before "regular" scheduler ticks
+      let transportEventTime = Infinity;
+      let transportEventPosition = Infinity;
+      let tickTime = -Infinity;
+
       const engine = (position, time, infos) => {
         if (infos instanceof TransportEvent) {
+          transportEventTime = time;
+          transportEventPosition = position;
+
+          // transport events time should be strictly higher than tick time
+          assert.isTrue(time > tickTime);
+
           console.log('[TransportEvent]', position, '\t', time, infos);
           console.log('[TransportEvent] return', infos.speed > 0 ? position : Infinity);
           return infos.speed > 0 ? position : Infinity;
         }
 
         console.log('[Scheduler tick]', position, '\t', time);
+
+        tickTime = time;
+
+        assert.isTrue(time >= transportEventTime);
+        assert.isTrue(position >= transportEventPosition);
+
         return position + 0.1;
       };
 
-      // play from 0 to 2, then loop between 1 and 2
+      // start from 0 to 2, then loop between 1 and 2
       transport.add(engine);
 
       const now = getTime();
       transport.loopStart(now, 1);
       transport.loopEnd(now, 2);
       transport.loop(now, true);
-      transport.play(now);
+      transport.start(now);
 
       await delay(5000);
 
       transport.remove(engine);
+      transport.pause(getTime());
     });
   });
-
-  // ## TODOS
-  //
-  // - [ ] add(engine)
-       // what happens if transport is started?
-  // - [ ] has(engine)
-  // - [ ] remove(engine)
-
-  // - [ ] loop
-  // - [ ] speed
-  // - [ ] cancel
-
-  // - [ ] controls / addEvent -> slave one transport to another one
-  // - [ ] getState / setState -> slave one transport to an existing one
-  // - [ ] addEvent -> remote control
-
-  // - [ ] engine respond to TransportEvent in the past
-  //
 });

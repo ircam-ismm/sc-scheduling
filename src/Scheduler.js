@@ -194,8 +194,10 @@ class Scheduler {
    * @param {function} engine - Engine to add to the schduler
    * @param {number} [time=0] - Time at which the engine should be launched. The
    *  provided value is clamped to `currentTime`
+   * @param {Number} [priority=0] - Additionnal priority in case of equal time between
+   *  two engine. Higher priority means the engine will processed first.
    */
-  add(engine, time = 0) {
+  add(engine, time = 0, priority = 0) {
     // compat mode for old waves TimeEngine API
     if (isFunction(engine.advanceTime)) {
       // make sure we don't bind twice and always grad the same binded instance
@@ -226,7 +228,7 @@ class Scheduler {
     engine[kSchedulerInstance] = this;
     this.#engines.add(engine);
     this.#engineTimeCounterMap.set(engine, { time: null, counter: 0 });
-    this.#queue.add(engine, time);
+    this.#queue.add(engine, time, priority);
 
     const nextTime = this.#queue.time;
     this.#resetTick(nextTime, true);
@@ -341,7 +343,7 @@ class Scheduler {
         engineInfos.counter += 1;
 
         if (engineInfos.counter >= this.#maxEngineRecursion) {
-          console.warn(`[sc-scheduling] maxEngineRecursion (${this.#maxEngineRecursion}) for the same engine at the same time: ${nextTime} has been reached. This is generally due to a implementation issue, thus the engine has been discarded. If you know what you are doing, you should consider increasing the maxEngineRecursion option.`);
+          console.warn(`[sc-scheduling] maxEngineRecursion (${this.#maxEngineRecursion}) for the same engine (${engine}) at the same time: ${nextTime} has been reached. This is generally due to a implementation issue, thus the engine has been discarded. If you know what you are doing, you should consider increasing the maxEngineRecursion option.`);
           nextTime = Infinity;
         }
       } else {

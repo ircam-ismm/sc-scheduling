@@ -29,17 +29,18 @@ export default class TransportControlEventQueue {
    * @return {Object|null} event or null if discarded
    */
   add(event) {
-    // sanitize events
-    if (event.type !== 'play'
-      && event.type !== 'pause'
-      && event.type !== 'seek'
-      && event.type !== 'cancel'
-      && event.type !== 'speed'
-      && event.type !== 'loop'
-      && event.type !== 'loop-start'
-      && event.type !== 'loop-end'
-      && event.type !== 'loop-point' // automatically inserted by Transport
-    ) {
+    if (![
+      'start',
+      'stop',
+      'pause',
+      'seek',
+      'cancel',
+      'loop',
+      'loop-start',
+      'loop-end',
+      'loop-point',
+      'speed',
+    ].includes(event.type)) {
       throw new Error(`Invalid event type: "${event.type}"`);
     }
 
@@ -65,32 +66,28 @@ export default class TransportControlEventQueue {
       } else if (a.time > b.time) {
         return 1;
       } else if (a.time === b.time) {
-        // keep original order
-        return 0;
+        return 0; // keep original order
       }
     });
 
-    // Remove consecutive events of same type (except seek). Note that we want
-    // to keep all `seek`, `loop` and `speed` events.
-    // e.g. in the `play|seek|seek|play` list we want to keep `play|seek|seek`,
-    // the second `play` is redondant
+    // Remove consecutive events of same type, disregarding `seek`, `loop`, `loop-start`
+    // `loop-end` and `speed` events. For example in the `start|seek|seek|start` list
+    // we want to keep `start|seek|seek` (the second `start` is redondant)
     let eventType = this.state.eventType;
 
     this.scheduledEvents = this.scheduledEvents.filter((event, i) => {
-      // do not dedup these events
-      if (event.type === 'seek'
-        || event.type === 'loop'
-        || event.type === 'loop-start'
-        || event.type === 'loop-end'
-        || event.type === 'speed'
-      ) {
-        return true;
-      } else if (event.type !== eventType) {
-        eventType = event.type;
-        return true;
-      } else {
-        return false;
+      // the events we want to dedup
+      if (['start', 'stop', 'pause', 'cancel'].includes(event.type)) {
+        if (event.type !== eventType) {
+          eventType = event.type;
+          return true;
+        } else {
+          return false;
+        }
       }
+
+      // keep all other events
+      return true;
     });
 
     // return null if event has been discarded
@@ -102,14 +99,18 @@ export default class TransportControlEventQueue {
     const event = this.next;
     const nextState = Object.assign({}, this.state);
 
-    nextState.type = event.type;
+    nextState.eventType = event.type;
     nextState.time = event.time;
     nextState.position = this.getPositionAtTime(event.time);
 
     // update state infos according to event
     switch (event.type) {
-      case 'play':
+      case 'start':
         nextState.speed = this.speed;
+        break;
+      case 'stop':
+        nextState.position = 0;
+        nextState.speed = 0;
         break;
       case 'pause':
         nextState.speed = 0;

@@ -1,7 +1,7 @@
 import { assert } from 'chai';
 import TransportEventQueue from '../src/TransportEventQueue.js';
 
-describe(`TransportEventQueue`, () => {
+describe.only(`TransportEventQueue`, () => {
   describe('#add(event)', () => {
     it(`should check event.type`, () => {
       const queue = new TransportEventQueue();
@@ -15,19 +15,23 @@ describe(`TransportEventQueue`, () => {
       const queue = new TransportEventQueue();
 
       const events = [
-        'play', 'play',
+        'start', 'start',
         'seek',
         'seek',
         'pause', 'pause',
         'seek',
+        'loop',
+        'stop', 'stop',
+        'loop-start',
+        'loop-start',
         'pause', 'pause',
-        'play',
+        'start',
         'loop', 'loop',
         'pause', 'pause',
       ];
 
       const expected = [
-        'play', 'seek', 'seek', 'pause', 'seek', 'play', 'loop', 'loop', 'pause'
+        'start', 'seek', 'seek', 'pause', 'seek', 'loop', 'stop', 'loop-start', 'loop-start', 'pause', 'start', 'loop', 'loop', 'pause'
       ];
 
       events.forEach((type, i) => {
@@ -45,7 +49,7 @@ describe(`TransportEventQueue`, () => {
       const queue = new TransportEventQueue();
 
       queue.add({
-        type: 'play',
+        type: 'start',
         time: 0,
       });
 
@@ -59,7 +63,7 @@ describe(`TransportEventQueue`, () => {
         time: 1,
       });
 
-      const expected = ['play', 'seek', 'pause'];
+      const expected = ['start', 'seek', 'pause'];
       const result = queue.scheduledEvents.map(e => e.type);
 
       assert.deepEqual(result, expected);
@@ -69,7 +73,7 @@ describe(`TransportEventQueue`, () => {
       const queue = new TransportEventQueue();
 
       queue.add({
-        type: 'play',
+        type: 'start',
         time: 0,
       });
 
@@ -79,7 +83,7 @@ describe(`TransportEventQueue`, () => {
       });
 
       queue.add({
-        type: 'play',
+        type: 'start',
         time: 3,
       });
 
@@ -96,7 +100,7 @@ describe(`TransportEventQueue`, () => {
       {
         // should only remain last and current events
         const types = queue.scheduledEvents.map(e => e.type);
-        const expected = ['play', 'pause'];
+        const expected = ['start', 'pause'];
         assert.deepEqual(types, expected);
       }
     });
@@ -131,16 +135,16 @@ describe(`TransportEventQueue`, () => {
       const queue = new TransportEventQueue();
 
       // --------------------------------------------------------
-      // play
+      // start
       // --------------------------------------------------------
       queue.add({
-        type: 'play',
+        type: 'start',
         time: 0,
       });
       queue.dequeue();
 
       assert.deepEqual(queue.state, {
-        type: 'play',
+        eventType: 'start',
         time: 0,
         speed: 1,
         position: 0,
@@ -160,7 +164,7 @@ describe(`TransportEventQueue`, () => {
       queue.dequeue();
 
       assert.deepEqual(queue.state, {
-        type: 'pause',
+        eventType: 'pause',
         time: 2,
         speed: 0,
         position: 2,
@@ -180,7 +184,7 @@ describe(`TransportEventQueue`, () => {
       queue.dequeue();
 
       assert.deepEqual(queue.state, {
-        type: 'seek',
+        eventType: 'seek',
         time: 2,
         speed: 0,
         position: 42,
@@ -202,7 +206,7 @@ describe(`TransportEventQueue`, () => {
       queue.dequeue();
 
       assert.deepEqual(queue.state, {
-        type: 'loop',
+        eventType: 'loop',
         time: 4,
         speed: 0,
         position: 42,
@@ -214,7 +218,7 @@ describe(`TransportEventQueue`, () => {
 
     it(`should handle speed events`, () => {
       const queue = new TransportEventQueue();
-      queue.add({ type: 'play', time: 0 });
+      queue.add({ type: 'start', time: 0 });
       queue.add({ type: 'speed', speed: 0.5, time: 0 });
       queue.dequeue();
       queue.dequeue();
@@ -243,7 +247,7 @@ describe(`TransportEventQueue`, () => {
     it(`should handle infinity`, () => {
       const queue = new TransportEventQueue();
 
-      queue.add({ type: 'play', time: 0 });
+      queue.add({ type: 'start', time: 0 });
       const res = queue.getTimeAtPosition(Infinity);
       assert.equal(res, Infinity);
     });

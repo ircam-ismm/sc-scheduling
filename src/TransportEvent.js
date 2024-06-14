@@ -15,7 +15,7 @@ class TransportEvent {
   #tickLookahead = null;
 
   constructor(transportState, schedulerInfos) {
-    this.#type = transportState.type;
+    this.#type = transportState.eventType;
     this.#time = transportState.time;
     this.#position = transportState.position;
     this.#speed = transportState.speed;

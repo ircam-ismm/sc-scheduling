@@ -200,7 +200,7 @@ class PriorityQueue {
    * @param {Object} entry - Entry to insert.
    * @param {Number} time - Time at which the entry should be orderer.
    * @param {Number} [priority=0] - Additionnal priority in case of equal time between
-   *  two children. Higher priority means the entry will before retrieved first.
+   *  two children. Higher priority means the entry will retrieved first.
    * @returns {Number} - Time of the first entry in the heap.
    */
   add(entry, time, priority = 0) {
