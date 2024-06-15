@@ -92,7 +92,7 @@ schedule.add(currentTime => {
 
 ## SchedulerProcessor
 
-Processor to add into a (@link Scheduler}.
+Processor to add into a [Scheduler][3].
 
 The processor will be called back by the Scheduler at the time it request,
 do some processing and return the next time at which it wants to be called back.

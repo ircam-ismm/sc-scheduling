@@ -16,7 +16,7 @@ const kSchedulerInstance = Symbol('sc-scheduling:scheduler');
 export const kSchedulerCompatMode = Symbol('sc-scheduling:compat-mode');
 
 /**
- * Processor to add into a (@link Scheduler}.
+ * Processor to add into a {@link Scheduler}.
  *
  * The processor will be called back by the Scheduler at the time it request,
  * do some processing and return the next time at which it wants to be called back.
