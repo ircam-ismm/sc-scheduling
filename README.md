@@ -92,6 +92,15 @@ schedule.add(currentTime => {
 
 ## SchedulerProcessor
 
+Processor to add into a (@link Scheduler}.
+
+The processor will be called back by the Scheduler at the time it request,
+do some processing and return the next time at which it wants to be called back.
+
+Note that the APIs of the `SchedulerProcessor` and of a `TransportProcessor`
+are made in such way that it is possible to implement generic processors that
+can be added both to a `Scheduler` and to a `Transport`.
+
 Type: [function][51]
 
 ### Parameters
