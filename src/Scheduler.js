@@ -4,9 +4,9 @@ import {
 } from '@ircam/sc-utils';
 
 import PriorityQueue from './PriorityQueue.js';
-import SchedulerInfos, {
+import SchedulerEvent, {
   kTickLookahead,
-} from './SchedulerInfos.js';
+} from './SchedulerEvent.js';
 import {
   identity,
 } from './utils.js';
@@ -15,72 +15,124 @@ const kSchedulerInstance = Symbol('sc-scheduling:scheduler');
 // export for tests
 export const kSchedulerCompatMode = Symbol('sc-scheduling:compat-mode');
 
+/**
+ * @typedef {function} SchedulerProcessor
+ *
+ * Processor to add into a (@link Scheduler}.
+ *
+ * The processor will be called back by the Scheduler at the time it request,
+ * do some processing and return the next time at which it wants to be called back.
+ *
+ * Note that the APIs of the `SchedulerProcessor` and of a `TransportProcessor`
+ * are made in such way that it is possible to implement generic processors that
+ * can be added both to a `Scheduler` and to a `Transport`.
+ *
+ * @param {number} currentTime - Current time in the timeline of the scheduler
+ * @param {number} processorTime - Current time in the timeline of the processor
+ *  if it has to trigger events in a different timeline, see
+ *  `Scheduler#options.currentTimeToProcessorTimeFunction`.
+ * @param {SchedulerEvent} event - Event that holds informations about the current
+ *  processor call.
+ */
 
 /**
  * The `Scheduler` interface implements a lookahead scheduler that can be used to
  * schedule events in an arbitrary timelines.
+ *
  * It aims at finding a tradeoff between time precision, real-time responsiveness
  * and the weaknesses of the native timers (i.e. `setTimeout` and `setInterval`)
  *
- * For an in-depth explaination of the pattern, see [https://web.dev/audio-scheduling/](https://web.dev/audio-scheduling/)
+ * For an in-depth explaination of the pattern, see <https://web.dev/audio-scheduling/>
  */
 class Scheduler {
   #getTimeFunction = null;
   #period = null;
   #lookahead = null;
-  #currentTimeToAudioTimeFunction = null;
-  #maxEngineRecursion = null;
+  #currentTimeToProcessorTimeFunction = null;
+  #maxRecursions = null;
   #verbose = null;
 
-  #infos = new SchedulerInfos();
+  #event = new SchedulerEvent();
   #queue = null;
-  #engines = new Set();
+  #processors = new Set();
   #bindedTick = null;
-  #currentTime = null;
   #nextTime = Infinity;
   #timeoutId = null;
-  #engineTimeCounterMap = new Map();
+  #processorRecursionsInfos = new Map();
 
   /**
-   * @param {function} getTimeFunction - A function which return a time in seconds
-   *  that will define the timeline of the scheduler.
+   * @param {function} getTimeFunction - Function that returns a time in seconds,
+   *  defining the timeline in which the scheduler is running.
    * @param {object} options - Options of the scheduler
    * @param {number} [options.period=0.25] - Period of the scheduler, in seconds
    * @param {number} [options.period=0.1] - Lookahead of the scheduler, in seconds
    * @param {number} [options.queueSize=1e3] - Default size of the queue, i.e.
    *  the number of events that can be scheduled in parallel
-   * @param {function} [options.currentTimeToAudioTimeFunction=Identity] - A function
-   *  to map between the schduler timeline and the audio timeline
-   * @param {number} [options.maxEngineRecursion=100] - Number of maximum calls
-   *  at same time for an engine before the engine is rejected from the scheduler
+   * @param {function} [options.currentTimeToProcessorTimeFunction=Identity] - Function
+   *  that maps between the scheduler timeline and the processors timeline. For
+   *  example to map between a synchronized timeline and an AudioContext own timeline.
+   * @param {number} [options.maxRecursions=100] - Number of maximum calls
+   *  at same time before the processor is rejected from the scheduler
    */
   constructor(getTimeFunction, {
     period = 0.025,
     lookahead = 0.1,
     queueSize = 1e3,
-    currentTimeToAudioTimeFunction = identity,
-    maxEngineRecursion = 100,
+    currentTimeToProcessorTimeFunction = identity,
+    // [deprecated]
+    currentTimeToAudioTimeFunction = null,
+    maxRecursions = 100,
     verbose = false,
   } = {}) {
     if (!isFunction(getTimeFunction)) {
-      throw new Error('[sc-scheduling] Invalid value for `getTimeFunction` in `new Scheduler(getTimeFunction)`, should be a function returning a time in seconds');
+      throw new TypeError(`Cannot construct 'Scheduler': argument 1 should be a function returning a time in seconds`);
     }
 
-    // the priority queue
+    if (!Number.isFinite(period) || period <= 0) {
+      throw new RangeError(`Cannot construct 'Scheduler': option 'period' (${period}) must be a strictly positive number`);
+    }
+
+    if (!Number.isFinite(lookahead) || lookahead <= 0) {
+      throw new RangeError(`Cannot construct 'Scheduler': option 'lookahead' (${lookahead}) must be a strictly positive number`);
+    }
+
+    if (lookahead <= period) {
+      throw new RangeError(`Cannot construct 'Scheduler': option 'lookahead' (${lookahead}) be greater than period (${period})`);
+    }
+
+    if (!Number.isFinite(queueSize) || queueSize <= 0) {
+      throw new RangeError(`Cannot construct 'Scheduler': option 'queueSize' (${queueSize}) must be a strictly positive number`);
+    }
+
+    if (!Number.isFinite(maxRecursions) || maxRecursions <= 0) {
+      throw new RangeError(`Cannot construct 'Scheduler': option 'maxRecursions' (${maxRecursions}) must be a strictly positive number`);
+    }
+
+    // sort of backward compatibility
+    if (currentTimeToAudioTimeFunction !== null) {
+      console.warn(`[Scheduler] 'options.currentTimeToAudioTimeFunction' is deprecated and will be removed in next release, use 'options.currentTimeToProcessorTimeFunction' instead.`);
+      currentTimeToProcessorTimeFunction = currentTimeToAudioTimeFunction;
+    }
+
+    if (!isFunction(currentTimeToProcessorTimeFunction)) {
+      throw new TypeError(`Cannot construct 'Scheduler': option 'currentTimeToProcessorTimeFunction' should be a function`);
+    }
+
+
     this.#queue = new PriorityQueue(queueSize);
-    // list of engines added to the scheduler
     this.#getTimeFunction = getTimeFunction;
     this.#period = period;
     this.#lookahead = lookahead;
-    this.#currentTimeToAudioTimeFunction = currentTimeToAudioTimeFunction;
-    this.#maxEngineRecursion = maxEngineRecursion;
-    this.#verbose = verbose;
+    this.#currentTimeToProcessorTimeFunction = currentTimeToProcessorTimeFunction;
+    this.#maxRecursions = maxRecursions;
+    this.#verbose = !!verbose;
+
     // bind tick as instance attribute
     this.#bindedTick = this.#tick.bind(this);
   }
 
   /**
-   * Period at which the scheduler checks for events, in seconds.
+   * Minimum period at which the scheduler checks for events, in seconds.
    * Throws if negative or greater than lookahead.
    * @type {number}
    */
@@ -89,8 +141,8 @@ class Scheduler {
   }
 
   set period(value) {
-    if (value < 0 || value >= this.lookahead) {
-      throw new Error('[sc-scheduling] Invalid value for period, period must be strictly positive and lower than lookahead');
+    if (!Number.isFinite(value) || value <= 0 || value >= this.lookahead) {
+      throw new RangeError(`Cannot set 'period' on Scheduler: value must be strictly positive and lower than lookahead`);
     }
 
     this.#period = value;
@@ -106,45 +158,51 @@ class Scheduler {
   }
 
   set lookahead(value) {
-    // the value < 0 redondant because period must be > 0, keep this for clarity
-    if (value < 0 || value <= this.period) {
-      throw new Error('[sc-scheduling] Invalid value for lookahead, lookahead must be strictly positive and greater than period');
+    if (!Number.isFinite(value) || value <= 0 || value <= this.period) {
+      throw new RangeError(`Cannot set 'lookahead' on Scheduler: value must be strictly positive and greater than period`);
     }
 
     this.#lookahead = value;
   }
 
   /**
-   * Scheduler current logical time.
+   * Current time in the scheduler timeline.
+   *
+   * Basically an accessor for `getTimeFunction` parameter given in constructor.
+   *
    * @type {number}
-   * @readonly
    */
   get currentTime() {
-    return this.#currentTime || this.#getTimeFunction() + this.lookahead;
+    // @note 2024/06 - tickTime was not null only within #tick which is sychronous.
+    // So there was no way to read it, except within processors which already received
+    // the value as argument.
+    // In all other cases this was just returning `current time + lookahead` which
+    // was not really useful.
+    // return this.#tickTime || this.#getTimeFunction() + this.lookahead;
+
+    return this.#getTimeFunction();
   }
 
   /**
-   * Scheduler current audio time according to `currentTime`
+   * [deprecated] Scheduler current audio time according to `currentTime`
    * @type {number}
-   * @readonly
    */
   get audioTime() {
-    return this.#currentTimeToAudioTimeFunction(this.currentTime);
+    console.warn(`[Scheduler] 'audioTime' getter is deprecated and will be removed in next release, use 'processorTime' instead.`);
+    return this.#currentTimeToProcessorTimeFunction(this.currentTime);
   }
 
   /**
-   * Check whether a given engine has been added to this scheduler
+   * Processor time according to `currentTime` and the transfert functioin
+   * provided in `options.currentTimeToProcessorTimeFunction`.
    *
-   * @param {object} engine  - Engine to test.
-   * @returns {boolean}
+   * If `options.currentTimeToProcessorTimeFunction` has not been set, is equal
+   * to `currentTime`.
+   *
+   * @type {number}
    */
-  has(engine) {
-    // compat mode for old waves TimeEngine API
-    if (engine[kSchedulerCompatMode]) {
-      engine = engine[kSchedulerCompatMode];
-    }
-    // ----------------------------------------
-    return this.#engines.has(engine);
+  get processorTime() {
+    return this.#currentTimeToProcessorTimeFunction(this.currentTime);
   }
 
   /**
@@ -155,10 +213,10 @@ class Scheduler {
    * audio events which natively scheduled with visuals which have no internal
    * timing/scheduling ability.
    *
-   * Be aware that this method will introduce small timing error (order of 1-2ms)
-   * due to the `setTimeout`.
+   * Be aware that this method will introduce small timing error of 1-2 ms order
+   * of magnitude due to the `setTimeout`.
    *
-   * @param {function} callback - Callback function to schedule.
+   * @param {SchedulerProcessor} deferedProcessor - Callback function to schedule.
    * @param {number} time - Time at which the callback should be scheduled.
    * @example
    * const scheduler = new Scheduler(getTime);
@@ -166,153 +224,174 @@ class Scheduler {
    * scheduler.add((currentTime, audioTime) => {
    *   // schedule some audio event
    *   playSomeSoundAt(audioTime);
-   *   // defer execution of visual display to compensate the dt
+   *   // defer execution of visual display to compensate the tickLookahead
    *   scheduler.defer(displaySomeSynchronizedStuff, currentTime);
    *   // ask the scheduler to call back in 1 second
    *   return currentTime + 1;
    * });
    */
-  defer(callback, time) {
-    const engine = (currentTime, audioTime, infos) => {
+  defer(deferedProcessor, time) {
+    const processor = (currentTime, audioTime, event) => {
       setTimeout(() => {
         const now = this.#getTimeFunction();
-        infos[kTickLookahead] = currentTime - now;
+        event[kTickLookahead] = currentTime - now;
 
-        callback(currentTime, audioTime, infos);
-      }, Math.ceil(infos.dt * 1000));
+        deferedProcessor(currentTime, audioTime, event);
+      }, Math.ceil(event.tickLookahead * 1000));
 
-      // clear engine
+      // clear processor
       return null;
     };
 
-    this.add(engine, time);
+    this.add(processor, time);
   }
 
   /**
-   * Add a time engine to the scheduler.
+   * Check whether a given processor has been added to this scheduler
    *
-   * @param {function} engine - Engine to add to the schduler
-   * @param {number} [time=0] - Time at which the engine should be launched. The
-   *  provided value is clamped to `currentTime`
-   * @param {Number} [priority=0] - Additionnal priority in case of equal time between
-   *  two engine. Higher priority means the engine will processed first.
+   * @param {SchedulerProcessor} processor  - Processor to test.
+   * @returns {boolean}
    */
-  add(engine, time = 0, priority = 0) {
+  has(processor) {
     // compat mode for old waves TimeEngine API
-    if (isFunction(engine.advanceTime)) {
+    if (processor[kSchedulerCompatMode]) {
+      processor = processor[kSchedulerCompatMode];
+    }
+    // ----------------------------------------
+    return this.#processors.has(processor);
+  }
+
+  /**
+   * Add a processor to the scheduler.
+   *
+   * Note that given `time` is considered a logical time and that no particular
+   * checks are made on it as it might break synchronization between several
+   * processors. So if the given time is in the past, the processor will be called
+   * in a recursive loop until it reaches current time.
+   * This is the responsibility of the consumer code to handle such possible issues.
+   *
+   * @param {SchedulerProcessor} processor - Processor to add to the scheduler
+   * @param {number} [time=this.currentTime] - Time at which the processor should be launched.
+   * @param {Number} [priority=0] - Additional priority in case of equal time between
+   *  two processor. Higher priority means the processor will processed first.
+   */
+  add(processor, time = this.currentTime, priority = 0) {
+    // compat mode for old waves TimeEngine API
+    if (isFunction(processor.advanceTime)) {
       // make sure we don't bind twice and always grad the same binded instance
-      if (engine[kSchedulerCompatMode] === undefined) {
-        engine[kSchedulerCompatMode] = engine.advanceTime.bind(engine);
+      if (processor[kSchedulerCompatMode] === undefined) {
+        processor[kSchedulerCompatMode] = processor.advanceTime.bind(processor);
       }
 
-      engine = engine[kSchedulerCompatMode];
+      processor = processor[kSchedulerCompatMode];
     }
     // end compat mode -------------------------
 
-    if (!isFunction(engine)) {
-      delete engine[kSchedulerInstance];
-      throw new Error(`[sc-scheduler] Invalid argument for scheduler.add(engine, time), engine should be a function`);
+    if (!isFunction(processor)) {
+      throw new TypeError(`Cannot execute 'add' on Scheduler: argument 1 is not a function`);
     }
 
-    // prevent that an engine is added to several scheduler
-    if (engine[kSchedulerInstance] !== undefined) {
-      if (engine[kSchedulerInstance] !== this) {
-        throw new Error(`[sc-scheduler] Engine cannot be added to this scheduler, it has already been added to another scheduler`);
+    // prevent that a processor is added to several scheduler
+    if (processor[kSchedulerInstance] !== undefined) {
+      if (processor[kSchedulerInstance] !== this) {
+        throw new DOMException(`Cannot execute 'add' on Scheduler: Processor belongs to another scheduler`, 'NotSupportedErrror');
       } else {
-        throw new Error(`[sc-scheduler] Engine has already been added to this scheduler`);
+        throw new DOMException(`Cannot execute 'add' on Scheduler: Processor has already been added to this scheduler`, 'NotSupportedErrror');
       }
     }
 
-    time = Math.max(time, this.#currentTime);
+    processor[kSchedulerInstance] = this;
+    this.#processors.add(processor);
+    this.#processorRecursionsInfos.set(processor, { time: null, counter: 0 });
+    this.#queue.add(processor, time, priority);
 
-    engine[kSchedulerInstance] = this;
-    this.#engines.add(engine);
-    this.#engineTimeCounterMap.set(engine, { time: null, counter: 0 });
-    this.#queue.add(engine, time, priority);
-
-    const nextTime = this.#queue.time;
-    this.#resetTick(nextTime, true);
+    const queueTime = this.#queue.time;
+    this.#resetTick(queueTime, true);
   }
 
   /**
-   * Reset next time of a given engine.
+   * Reset next time of a given processor.
    *
-   * If time is not a number, the engine is removed from the scheduler.
+   * If time is not a number, the processor is removed from the scheduler.
    *
-   * Be aware that calling this method within an engine callback function won't
-   * work, because the reset will be overriden by the engine return value.
+   * Note that given `time` is considered a logical time and that no particular
+   * checks are made on it as it might break synchronization between several
+   * processors. So if the given time is in the past, the processor will be called
+   * in a recursive loop until it reaches current time.
+   * This is the responsibility of the consumer code to handle such possible issues.
    *
-   * @param {function} engine - The engine to reschedule
-   * @param {number} [time=undefined] - Time at which the engine must be rescheduled
+   * Be aware that calling this method within a processor callback function won't
+   * work, because the reset will always be overriden by the processor return value.
+   *
+   * @param {SchedulerProcessor} processor - The processor to reschedule
+   * @param {number} [time=undefined] - Time at which the processor must be rescheduled
    */
-  reset(engine, time = undefined) {
+  reset(processor, time = undefined) {
     // compat mode for old waves TimeEngine API
-    if (engine[kSchedulerCompatMode]) {
-      engine = engine[kSchedulerCompatMode];
+    if (processor[kSchedulerCompatMode]) {
+      processor = processor[kSchedulerCompatMode];
     }
     // ----------------------------------------
 
-    // @todo - split errors
-    if (engine[kSchedulerInstance] !== undefined && engine[kSchedulerInstance] !== this) {
-      throw new Error(`[sc-scheduler] Engine cannot be reset on this scheduler, it has been added to another scheduler`);
+    if (!this.has(processor)) {
+      throw new DOMException(`Cannot execute 'reset' on Scheduler: Processor has not been added to this scheduler`, 'NotSupportedError');
     }
 
     if (isNumber(time)) {
-      time = Math.max(time, this.#currentTime);
-      this.#queue.move(engine, time);
+      this.#queue.move(processor, time);
     } else {
-      this.#remove(engine);
+      this.#remove(processor);
     }
 
-    const nextTime = this.#queue.time;
-    this.#resetTick(nextTime, true);
+    const queueTime = this.#queue.time;
+    this.#resetTick(queueTime, true);
   }
 
   /**
-   * Remove a time engine from the scheduler.
+   * Remove a processor from the scheduler.
    *
-   * @param {function} engine - The engine to reschedule
+   * @param {SchedulerProcessor} processor - The processor to reschedule
    */
-  remove(engine) {
+  remove(processor) {
     // compat mode for old waves TimeEngine API
-    if (engine[kSchedulerCompatMode]) {
-      // no need to delete the kSchedulerCompatMode key, if the engine is added again
+    if (processor[kSchedulerCompatMode]) {
+      // no need to delete the kSchedulerCompatMode key, if the processor is added again
       // we just reuse the already existing binded advanceTime.
-      engine = engine[kSchedulerCompatMode];
+      processor = processor[kSchedulerCompatMode];
     }
     // ----------------------------------------
 
-    if (engine[kSchedulerInstance] !== undefined && engine[kSchedulerInstance] !== this) {
-      throw new Error(`[sc-scheduler] Engine cannot be removed from this scheduler, it has been added to another scheduler`);
+    if (!this.has(processor)) {
+      throw new DOMException(`Cannot execute 'reset' on Scheduler: Processor has not been added to this scheduler`, 'NotSupportedError');
     }
 
-    this.#remove(engine);
+    this.#remove(processor);
 
-    const nextTime = this.#queue.time;
-    this.#resetTick(nextTime, true);
+    const queueTime = this.#queue.time;
+    this.#resetTick(queueTime, true);
   }
 
   /**
    * Clear the scheduler.
    */
   clear() {
-    for (let engine of this.#engines) {
-      delete engine[kSchedulerInstance];
+    for (let processor of this.#processors) {
+      delete processor[kSchedulerInstance];
     }
 
     this.#queue.clear();
-    this.#engines.clear();
-    this.#engineTimeCounterMap.clear();
+    this.#processors.clear();
+    this.#processorRecursionsInfos.clear();
     // just stops the scheduler
     this.#resetTick(Infinity, false);
   }
 
-  #remove(engine) {
-    delete engine[kSchedulerInstance];
+  #remove(processor) {
+    delete processor[kSchedulerInstance];
     // remove from array and queue
-    this.#queue.remove(engine);
-    this.#engines.delete(engine);
-    this.#engineTimeCounterMap.delete(engine);
+    this.#queue.remove(processor);
+    this.#processors.delete(processor);
+    this.#processorRecursionsInfos.delete(processor);
   }
 
   #tick() {
@@ -322,47 +401,55 @@ class Scheduler {
     this.#timeoutId = null;
 
     while (queueTime <= tickTime + this.lookahead) {
-      // retreive the engine and advance its time
-      const engine = this.#queue.head;
-      const engineInfos = this.#engineTimeCounterMap.get(engine);
+      // retreive the processor and advance its time
+      const processor = this.#queue.head;
+      const processorInfos = this.#processorRecursionsInfos.get(processor);
 
-      // set current time of scheduler to event logical time
-      this.#currentTime = queueTime;
-      // delta time between the tick call and the scheduled event
-      this.#infos[kTickLookahead] = queueTime - tickTime;
+      // update SchedulerEvent with current delta time  between the tick call and
+      // the scheduled event
+      this.#event[kTickLookahead] = queueTime - tickTime;
       // grab related audio time if a transfert function has been given
-      const audioTime = this.#currentTimeToAudioTimeFunction(queueTime);
+      const audioTime = this.#currentTimeToProcessorTimeFunction(queueTime);
+      let nextTime;
 
-      let nextTime = engine(queueTime, audioTime, this.#infos);
+      try {
+        nextTime = processor(queueTime, audioTime, this.#event);
+      } catch (err) {
+        console.warn(`Running processor threw an error, processor removed from scheduler`);
+        console.log(err);
+        this.#remove(processor);
+      }
 
       // Prevent infinite loops:
       // We don't want to enforce that nextTime > time because it can be handy for e.g.
       // playing chords, but this a common source of problems in development, when
       // such returned value completely freezes the browser...
-      if (nextTime === engineInfos.time) {
-        engineInfos.counter += 1;
+      if (nextTime === processorInfos.time) {
+        processorInfos.counter += 1;
 
-        if (engineInfos.counter >= this.#maxEngineRecursion) {
-          console.warn(`[sc-scheduling] maxEngineRecursion (${this.#maxEngineRecursion}) for the same engine (${engine}) at the same time: ${nextTime} has been reached. This is generally due to a implementation issue, thus the engine has been discarded. If you know what you are doing, you should consider increasing the maxEngineRecursion option.`);
+        if (processorInfos.counter >= this.#maxRecursions) {
+          console.warn(`\
+[Scheduler] maxRecursions (${this.#maxRecursions}) at the same time (${nextTime}) has been reached, processor discarded:
+${processor}
+This is generally due to a implementation bug, but if you know what you are doing you should consider increasing the 'maxRecursions' option.`);
           nextTime = Infinity;
         }
       } else {
-        engineInfos.time = nextTime;
-        engineInfos.counter = 1;
+        processorInfos.time = nextTime;
+        processorInfos.counter = 1;
       }
 
       if (isNumber(nextTime)) {
-        this.#queue.move(engine, nextTime);
+        this.#queue.move(processor, nextTime);
       } else {
         // we don't need to reset the tick here
-        this.#remove(engine);
+        this.#remove(processor);
       }
 
       // grab next event time in queue
       queueTime = this.#queue.time;
     }
 
-    this.#currentTime = null;
     // minimum bound of this.period is ok as we are in the "normal" scheduling behaviour
     this.#resetTick(queueTime, false);
   }
@@ -371,12 +458,15 @@ class Scheduler {
    * @private
    * @param {number} queueTime - The current queue time
    * @param {boolean} isReschedulingEvent - whether the function has been called
-   *  from a modification in the timeline, i.e. add, reset, remove
+   *  from a modification in the timeline, i.e. add, reset, remove or just from
+   *  a regular `#tick``
    */
   #resetTick(queueTime, isReschedulingEvent) {
-    // @note - we cant compare previous and next time to avoid rescheduling because
-    // timeout is so unstable, i.e. it is sometimes triggered before its deadline,
+
+    // @note - we can't compare previous and next time to avoid rescheduling because
+    // timeout are too noisy: i.e. it is sometimes triggered before its deadline,
     // therefore stopping the scheduler for no apparent reason
+
     const previousNextTime = this.#nextTime;
     this.#nextTime = queueTime;
 
@@ -384,12 +474,12 @@ class Scheduler {
 
     if (this.#nextTime !== Infinity) {
       if (this.#verbose && previousNextTime === Infinity) {
-        console.log('[sc-scheduling] > scheduler start');
+        console.log('[Scheduler] > scheduler start');
       }
 
-      // Notes on attempt to have a synchronous API if dt is 0 or very small:
+      // @notes - Attempt to have a synchronous API if dt is 0 or very small:
       //
-      // setTimeout introduce an error of around 1-2ms we should take into account.
+      // [idea] setTimeout introduce an error of around 1-2ms we could take into account.
       // So if _nextTime is within a 10ms window we execute the #tick in a microtask
       // to minimize the delay, in other cases we can quite safely rely on setTimeout
       //
@@ -398,20 +488,19 @@ class Scheduler {
       //   Promise.resolve().then(this.#tick);
       // }
       //
-      // But... this has a lot of undesirable side effects:
+      // [result] But... this has a lot of undesirable side effects:
       //
-      // Note 1: This is all wrong, if reset tick is called several times in a row, the
-      // set immediate wont be cancelled, then we might end up with several parallel
-      // timeout stacks which is really bad.
+      // 1. If reset tick is called several times in a row, the set immediate wont
+      // be cancelled, then we might end up with several parallel timeout stacks which
+      // is really bad.
       //
-      // Note 2: We must stay asynchronous here because if some engine is used to
+      // 2. We must stay asynchronous here because if some processor is used to
       // orchestrate other ones behavior (and reset their time), we dont' want to
-      // have another engine behing executed before the orchestartor returns its next
+      // have another processor behing executed before the orchestartor returns its next
       // time.
       //
-      // Note 3: Maybe this advocates for making it all more simple, with a loop
-      // that just starts and stop, only reschduling when an event is added with
-      // the period
+      // [note/tbc] Maybe this advocates for making it all more simple, with a loop that just
+      // starts and stop, only reschduling when an event is added within the period
 
       const now = this.#getTimeFunction();
       const dt = this.#nextTime - now;
@@ -425,7 +514,7 @@ class Scheduler {
       this.#timeoutId = setTimeout(this.#bindedTick, Math.ceil(timeoutDelay * 1000));
 
     } else if (this.#verbose && previousNextTime !== Infinity) {
-      console.log('[sc-scheduling] > scheduler stop');
+      console.log('[Scheduler] > scheduler stop');
     }
   }
 }

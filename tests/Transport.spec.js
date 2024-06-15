@@ -255,56 +255,53 @@ describe(`# Transport`, () => {
     it(`start at 0, seek at 23.5, pause at 24.5, seek at 0, start`, async function() {
       this.timeout(6 * 1000);
 
-      return new Promise(async resolve => {
-        const scheduler = new Scheduler(() => getTime());
-        const transport = new Transport(scheduler);
+      const scheduler = new Scheduler(() => getTime());
+      const transport = new Transport(scheduler);
 
-        const now = getTime();
+      const now = getTime();
 
-        const expectedEvents = [
-          { type: 'start', position: 0, speed: 1, time: now + 1 },
-          { type: 'seek', position: 23.5, speed: 1, time: now + 2 },
-          { type: 'pause', position: 24.5, speed: 0, time: now + 3 },
-          { type: 'seek', position: 0, speed: 0, time: now + 3 },
-          // this one wont be precise because of the of the setTimeout
-          { type: 'start', position: 0, speed: 1, time: now + 4 },
-        ];
+      const expectedEvents = [
+        { type: 'init', position: 0, speed: 0, time: now }, // this is triggered on `ad`
+        { type: 'start', position: 0, speed: 1, time: now + 1 },
+        { type: 'seek', position: 23.5, speed: 1, time: now + 2 },
+        { type: 'pause', position: 24.5, speed: 0, time: now + 3 },
+        { type: 'seek', position: 0, speed: 0, time: now + 3 },
+        // this one wont be precise because of the of the setTimeout
+        { type: 'start', position: 0, speed: 1, time: now + 4 },
+      ];
 
-        let index = 0;
+      let index = 0;
 
-        const engine = (position, time, event) => {
-          console.log('[TransportEvent]', event);
-          const expected = expectedEvents[index];
-          assert.equal(event.type, expected.type);
-          assert.equal(event.position, expected.position);
-          assert.equal(event.speed, expected.speed);
+      const engine = (position, time, event) => {
+        console.log('[TransportEvent]', event);
+        const expected = expectedEvents[index];
+        assert.equal(event.type, expected.type);
+        assert.equal(event.position, expected.position);
+        assert.equal(event.speed, expected.speed);
 
-          // The last 'start' event wont be very precise because of the `setTimeout`
-          if (index < 4) {
-            assert.isBelow(Math.abs(event.time - expected.time), 1e-9);
-          } else {
-            assert.isBelow(Math.abs(event.time - expected.time), 0.005);
-          }
+        // The first and last 'start' event wont be very precise because of the `setTimeout`
+        if (index > 0 && index < 4) {
+          assert.isBelow(Math.abs(event.time - expected.time), 1e-9);
+        } else {
+          assert.isBelow(Math.abs(event.time - expected.time), 0.005);
+        }
 
-          index += 1;
+        index += 1;
+      };
 
-          if (index === expectedEvents.length) {
-            resolve();
-          }
-        };
+      transport.add(engine);
+      // Support
+      transport.start(now + 1);
+      transport.seek(now + 2, 23.5); // seek at position 23.5
+      // stop and seek to zero
+      transport.pause(now + 3);
+      transport.seek(now + 3, 0);
 
-        transport.add(engine);
-        // Support
-        transport.start(now + 1);
-        transport.seek(now + 2, 23.5); // seek at position 23.5
-        // stop and seek to zero
-        transport.pause(now + 3);
-        transport.seek(now + 3, 0);
+      await delay(4000);
 
-        await delay(4000);
+      transport.start(getTime());
 
-        transport.start(getTime());
-      });
+      await delay(1000);
     });
 
     it(`start / stop / start / stop`, async function() {
@@ -315,10 +312,10 @@ describe(`# Transport`, () => {
 
       const now = getTime();
 
-      const engine = (position, time, infos) => {
-        if (infos instanceof TransportEvent) {
-          console.log('[TransportEvent]', infos);
-          return infos.speed > 0 ? position : Infinity;
+      const engine = (position, time, event) => {
+        if (event instanceof TransportEvent) {
+          console.log('[TransportEvent]', event);
+          return event.speed > 0 ? position : Infinity;
         }
 
         console.log('[Scheduler tick]', position);
@@ -343,14 +340,14 @@ describe(`# Transport`, () => {
       const scheduler = new Scheduler(getTime);
       const transport = new Transport(scheduler);
 
-      const engine = (position, time, infos) => {
-        if (infos instanceof TransportEvent) {
-          console.log('[TransportEvent]', position, time, infos);
-          console.log('[TransportEvent] return', infos.speed > 0 ? position : Infinity);
-          return infos.speed > 0 ? position : Infinity;
+      const engine = (position, time, event) => {
+        if (event instanceof TransportEvent) {
+          console.log('[TransportEvent]', position, time, event);
+          console.log('[TransportEvent] return', event.speed > 0 ? position : Infinity);
+          return event.speed > 0 ? position : Infinity;
         }
 
-        console.log('[Scheduler tick]', position, time, infos);
+        console.log('[Scheduler tick]', position, time, event);
         return position + 0.1;
       };
 
@@ -380,17 +377,17 @@ describe(`# Transport`, () => {
       let transportEventPosition = Infinity;
       let tickTime = -Infinity;
 
-      const engine = (position, time, infos) => {
-        if (infos instanceof TransportEvent) {
+      const engine = (position, time, event) => {
+        if (event instanceof TransportEvent) {
           transportEventTime = time;
           transportEventPosition = position;
 
           // transport events time should be strictly higher than tick time
           assert.isTrue(time > tickTime);
 
-          console.log('[TransportEvent]', position, '\t', time, infos);
-          console.log('[TransportEvent] return', infos.speed > 0 ? position : Infinity);
-          return infos.speed > 0 ? position : Infinity;
+          console.log('[TransportEvent]', position, '\t', time, event);
+          console.log('[TransportEvent] return', event.speed > 0 ? position : Infinity);
+          return event.speed > 0 ? position : Infinity;
         }
 
         console.log('[Scheduler tick]', position, '\t', time);
@@ -416,6 +413,61 @@ describe(`# Transport`, () => {
 
       transport.remove(engine);
       transport.pause(getTime());
+    });
+
+    it(`synchronized transports`, async function() {
+      this.timeout(8000);
+
+      class Engine {
+        constructor(name) {
+          this.name = name;
+          this.tick = this.tick.bind(this);
+          this.reported = false;
+        }
+        tick(position, time, event) {
+          if (event instanceof TransportEvent) {
+            console.log(`[${this.name}]`, event, event.speed > 0 ? position : Infinity);
+            return event.speed > 0 ? position : Infinity;
+          }
+
+          // both master and slave engine should be called before the second start (at 2s)
+          if (!this.reported) {
+            assert.isTrue(position < 2);
+            this.reported = true;
+          }
+
+          console.log(`[${this.name}]`, position);
+          return position + 0.25;
+        }
+      }
+
+      const scheduler = new Scheduler(getTime);
+      // second 0 - master starts
+      const master = new Transport(scheduler);
+      const engine1 = new Engine('master');
+      master.add(engine1.tick)
+      master.start(getTime()); // don't know how to handle that yet
+
+      // second 1 - slave starts
+      await delay(1000);
+      const slave = new Transport(scheduler, master.dumpState());
+      const engine2 = new Engine('slave');
+      slave.add(engine2.tick);
+
+      // second 2 - pause
+      await delay(1000);
+      const pauseEvent = master.pause(getTime());
+      slave.addEvent(pauseEvent);
+
+      // second 3 - restart
+      await delay(1000);
+      const startEvent = master.start(getTime());
+      slave.addEvent(startEvent);
+
+      // second 4 - stop
+      await delay(1000);
+      const stopEvent = master.stop(getTime());
+      slave.addEvent(stopEvent);
     });
   });
 });

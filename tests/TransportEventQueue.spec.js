@@ -1,10 +1,10 @@
 import { assert } from 'chai';
 import TransportEventQueue from '../src/TransportEventQueue.js';
 
-describe.only(`TransportEventQueue`, () => {
+describe(`TransportEventQueue`, () => {
   describe('#add(event)', () => {
     it(`should check event.type`, () => {
-      const queue = new TransportEventQueue();
+      const queue = new TransportEventQueue(0);
 
       assert.throw(() => {
         queue.add({ type: 'unknown' });
@@ -12,7 +12,7 @@ describe.only(`TransportEventQueue`, () => {
     });
 
     it('should filter similar consecutive events except seek and loop', () => {
-      const queue = new TransportEventQueue();
+      const queue = new TransportEventQueue(0);
 
       const events = [
         'start', 'start',
@@ -46,7 +46,7 @@ describe.only(`TransportEventQueue`, () => {
     });
 
     it('should insert event in queue in right position', () => {
-      const queue = new TransportEventQueue();
+      const queue = new TransportEventQueue(0);
 
       queue.add({
         type: 'start',
@@ -70,7 +70,7 @@ describe.only(`TransportEventQueue`, () => {
     });
 
     it('should clear events w/ time greater or equal to cancel time', () => {
-      const queue = new TransportEventQueue();
+      const queue = new TransportEventQueue(0);
 
       queue.add({
         type: 'start',
@@ -106,7 +106,7 @@ describe.only(`TransportEventQueue`, () => {
     });
 
     it('should return event with proper estimation or null if discarded', () => {
-      const queue = new TransportEventQueue();
+      const queue = new TransportEventQueue(0);
 
       const res1 = queue.add({
         type: 'pause',
@@ -132,7 +132,7 @@ describe.only(`TransportEventQueue`, () => {
     it('should properly compute state when a event is dequeued', () => {
       // index 0 and 1 of the queue are last and current events which are null
       // as we don't dequeue anything
-      const queue = new TransportEventQueue();
+      const queue = new TransportEventQueue(0);
 
       // --------------------------------------------------------
       // start
@@ -217,7 +217,7 @@ describe.only(`TransportEventQueue`, () => {
     });
 
     it(`should handle speed events`, () => {
-      const queue = new TransportEventQueue();
+      const queue = new TransportEventQueue(0);
       queue.add({ type: 'start', time: 0 });
       queue.add({ type: 'speed', speed: 0.5, time: 0 });
       queue.dequeue();
@@ -245,7 +245,7 @@ describe.only(`TransportEventQueue`, () => {
 
   describe(`getTimeAtPosition()`, () => {
     it(`should handle infinity`, () => {
-      const queue = new TransportEventQueue();
+      const queue = new TransportEventQueue(0);
 
       queue.add({ type: 'start', time: 0 });
       const res = queue.getTimeAtPosition(Infinity);

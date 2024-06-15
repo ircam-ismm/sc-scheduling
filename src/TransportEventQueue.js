@@ -3,10 +3,14 @@
  * Dedicated queue for the Transport
  */
 export default class TransportControlEventQueue {
-  constructor() {
+  constructor(currentTime) {
+    if (!Number.isFinite(currentTime)) {
+      throw new TypeError(`Cannot construct 'TransportEventQueue': argument 1 should be the current time at instanciation`);
+    }
+
     this.state = {
       eventType: null,
-      time: 0,
+      time: currentTime,
       position: 0,
       speed: 0,
       loop: false,
@@ -127,6 +131,9 @@ export default class TransportControlEventQueue {
       case 'loop-end':
         nextState.loopEnd = event.loopEnd;
         break;
+      case 'loop-point':
+        nextState.position = event.position;
+        break;
       case 'speed':
         this.speed = event.speed;
 
@@ -152,7 +159,7 @@ export default class TransportControlEventQueue {
         const event = {
           type: 'loop-point',
           time: this.state.time + (this.state.loopEnd - this.state.loopStart),
-          position: this.state.loopEnd, // or loop start, this is arbitrary
+          position: this.state.loopStart, // is rather abitrary but probably more convenient
         }
 
         this.add(event);
@@ -160,7 +167,7 @@ export default class TransportControlEventQueue {
         const event = {
           type: 'loop-point',
           time: this.getTimeAtPosition(this.state.loopEnd),
-          position: this.state.loopEnd, // or loop start, this is arbitrary
+          position: this.state.loopStart, // is rather abitrary but probably more convenient
         }
 
         this.add(event);

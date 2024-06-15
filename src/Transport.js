@@ -11,22 +11,66 @@ function isPositiveNumber(value) {
   return Number.isFinite(value) && value >= 0;
 }
 
-/** @private */
+/**
+ * The Transport abstraction allows to define and manipulate a timeline.
+ *
+ * @example
+ * import { Scheduler, Transport, TransportEvent } from '@ircam/sc-scheduling';
+ * import { getTime } from '@ircam/sc-utils';
+ *
+ * const scheduler = new Scheduler(getTime);
+ * const transport = new Transport(scheduler);
+ *
+ * const engine = (position, time, infos) => {
+ *   if (infos instanceof TransportEvent) {
+ *      // ask to be called back only when the transport is running
+ *      return infos.speed > 0 ? position : Infinity;
+ *   }
+ *
+ *   console.log(position);
+ *   return position + 0.1; // ask to be called back every 100ms
+ * }
+ */
 class Transport {
   #scheduler = null;
   #bindedTick = null;
-  #eventQueue = new TransportEventQueue();
+  #eventQueue = null;
   #engines = new Map(); // <Engine, wrappedFunction>
   // we want transport events to be processed before regular engines
   #queuePriority = 1e3;
 
-  constructor(scheduler) {
+  /**
+   * @param {Scheduler} scheduler - Instance of scheduler into which the transport
+   *  should run
+   * @param {object} [initialState=null] - Initial state of the transport, to synchronize
+   *  it from another transport state (see `Transport#dumpState()`).
+   */
+  constructor(scheduler, initialState = null) {
     if (!(scheduler instanceof Scheduler)) {
       throw new TypeError(`Cannot construct 'Transport': Argument 1 must be an instance of Scheduler`);
     }
 
     this.#scheduler = scheduler;
+    // init event queue state with current scheduler time, we can't assume
+    // the transport is created at the beginning of the process
+    this.#eventQueue = new TransportEventQueue(this.#scheduler.currentTime);
     this.#bindedTick = this.#tick.bind(this);
+
+    if (initialState !== null) {
+      this.#eventQueue.state = initialState.currentState;
+      this.#eventQueue.scheduledEvents = initialState.scheduledEvents;
+    }
+  }
+
+  /**
+   * Retrieves the current state and event queue for the transport
+   */
+  dumpState() {
+    // @todo - replace with proper class with getters
+    return {
+      currentState: cloneDeep(this.#eventQueue.state),
+      scheduledEvents: cloneDeep(this.#eventQueue.scheduledEvents),
+    };
   }
 
   /**
@@ -246,40 +290,11 @@ class Transport {
     return this.addEvent(event);
   }
 
-
-  /**
-   * Return estimated position at given time according to the transport current state.
-   * @param {number} time - Time to convert to position
-   */
-  getPositionAtTime(time) {
-    return quantize(this.#eventQueue.getPositionAtTime(time));
-  }
-
-
-  // @todo - review `setState` and `getState` naming
-
-  // Init the transport state and event queue from another transport
-  /** @private */
-  setState(state) {
-    this.#eventQueue.state = state.currentState;
-    this.#eventQueue.scheduledEvents = state.scheduledEvents;
-  }
-
-  // Retrieves the state and event queue for the transport
-  /** @private */
-  getState() {
-    // @todo - replace with proper class with getters
-    return {
-      currentState: cloneDeep(this.#eventQueue.state),
-      scheduledEvents: cloneDeep(this.#eventQueue.scheduledEvents),
-    };
-  }
-
   /**
    * Add raw event to the transport queue.
    *
-   * Most of the time, you should use the dedicated higher level methods. Howver
-   * this is usefull to control several transports from a central event producer
+   * Most of the time, you should use the dedicated higher level methods. However
+   * this is useful to control several transports from a central event producer
    * (e.g. on the network)
    */
   addEvent(event) {
@@ -310,49 +325,19 @@ class Transport {
   }
 
   /**
-   * Apply transport event on all registered Engines
+   * Return estimated position at given time according to the transport current state.
+   * @param {number} time - Time to convert to position
    */
-  #tick(currentTime, audioTime, schedulerInfos) {
-    const state = this.#eventQueue.dequeue();
-    // @todo - implemeent
-    const transportEvent = new TransportEvent(state, schedulerInfos);
-
-    // Propagate transport event to all childrens, so that they can define their
-    // position and reset their next time in scheduler.
-    //
-    // Note that we use the wrapped engine, so all convertions between time and
-    // position is done inside the engine itself. Then, we can just propagate the
-    // values received from the scheduler in a straightforward way.
-    for (let engine of this.#engines.values()) {
-      let resetTime;
-
-      try {
-        resetTime = engine(currentTime, audioTime, transportEvent);
-      } catch(err) {
-        console.error(err);
-      }
-
-      // @todo - This can fail due to back and forth conversions between time and position
-      // Check that resetTime >= currentTime
-      // if (resetTime < currentTime) {
-      //   console.warn('Handling TransportEvent cannot lead to scheduling in the past, removing faulty engine');
-      //   this.#scheduler.remove(engine);
-      // }
-
-      // no need for further checks, or conversion, everything is done in wrapped engine
-      this.#scheduler.reset(engine, resetTime);
-    }
-
-    // return time of next transport event
-    if (this.#eventQueue.next) {
-      return this.#eventQueue.next.time;
-    } else {
-      return Infinity;
-    }
+  getPositionAtTime(time) {
+    return quantize(this.#eventQueue.getPositionAtTime(time));
   }
 
   /**
-   * Add an engine to the transport
+   * Add an engine to the transport.
+   *
+   * When a processor is added to the transport, it called with an 'init' event
+   * to allow it to respond properly to the current state of the transport.
+   * For example, if the transport has already been started.
    *
    * @param {function} engine - Engine to add to the transport
    * @throws Throw if the engine has already been added to this or another transport
@@ -390,7 +375,20 @@ class Transport {
 
     // @todo - handle case where transport is in running state
     // add to scheduler at Infinity, children should never be removed from scheduler
+
+    // call engine tick method according to current transport state
+    // @todo - using scheduler current time is not good as it may include
+    // lookahead
+    const currentTime = this.currentTime;
+    const audioTime = this.audioTime;
+    const state = cloneDeep(this.#eventQueue.state);
+    state.eventType = 'init';
+    const tickLookahead = state.time - currentTime;
+    const transportEvent = new TransportEvent(state, tickLookahead);
+
     this.#scheduler.add(wrappedEngine, Infinity);
+    // allow engine to reset it's position in scheduler
+    this.#tickEngine(wrappedEngine, currentTime, audioTime, transportEvent);
   }
 
   /**
@@ -431,6 +429,50 @@ class Transport {
 
     this.cancel(this.currentTime);
     this.stop(this.currentTime);
+  }
+
+  #tick(currentTime, audioTime, schedulerInfos) {
+    const state = this.#eventQueue.dequeue();
+    // @todo - implemeent
+    const transportEvent = new TransportEvent(state, schedulerInfos.tickLookahead);
+
+    // Propagate transport event to all childrens, so that they can define their
+    // position and reset their next time in scheduler.
+    //
+    // Note that we use the wrapped engine, so all convertions between time and
+    // position is done inside the engine itself. Then, we can just propagate the
+    // values received from the scheduler in a straightforward way.
+    for (let engine of this.#engines.values()) {
+      this.#tickEngine(engine, currentTime, audioTime, transportEvent);
+    }
+
+    // return time of next transport event
+    if (this.#eventQueue.next) {
+      return this.#eventQueue.next.time;
+    } else {
+      return Infinity;
+    }
+  }
+
+  #tickEngine(engine, currentTime, audioTime, transportEvent) {
+    let resetTime;
+
+    try {
+      resetTime = engine(currentTime, audioTime, transportEvent);
+    } catch(err) {
+      console.error(err);
+    }
+
+    // @todo - This can fail due to back and forth conversions between time and position
+    // Check that resetTime >= currentTime
+    // if (resetTime < currentTime) {
+    //   console.warn('Handling TransportEvent cannot lead to scheduling in the past, removing faulty engine');
+    //   this.#scheduler.remove(engine);
+    // }
+
+    // no need for further checks, or conversion, everything is done in wrapped engine
+    console.log('resetTime', resetTime);
+    this.#scheduler.reset(engine, resetTime);
   }
 }
 

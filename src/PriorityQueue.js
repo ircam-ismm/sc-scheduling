@@ -11,8 +11,6 @@ export const kQueueTime = Symbol('sc-scheduling:queue-time');
 export const kQueuePriority = Symbol('sc-scheduling:queue-priority');
 
 /**
- * @private
- *
  * Priority queue implementing a binary heap.
  *
  * The queue acts as a min heap by default, but can be dynamically changed to a
@@ -23,16 +21,19 @@ export const kQueuePriority = Symbol('sc-scheduling:queue-priority');
  * be visible for client code
  *
  * @param {Number} [heapLength=1000] - Default size of the array used to create the heap.
+ * @private
  */
 class PriorityQueue {
   /**
    * Pointer to the first empty index of the heap.
    * @type {Number}
+   * @private
    */
   #currentLength = 1;
   /**
    * Array of the sorted indexes of the entries, the actual heap. Ignore the index 0.
    * @type {Array}
+   * @private
    */
   #heap = null;
 
@@ -70,6 +71,7 @@ class PriorityQueue {
    * @param {any} entry1
    * @param {any} entry2
    * @return {Boolean}
+   * @private
    */
   #isLower(entry1, entry2) {
     const time1 = entry1[kQueueTime];
@@ -91,6 +93,7 @@ class PriorityQueue {
    * @param {Number} entry1
    * @param {Number} entry2
    * @return {Boolean}
+   * @private
    */
   #isHigher(entry1, entry2) {
     const time1 = entry1[kQueueTime];
@@ -109,6 +112,7 @@ class PriorityQueue {
    * Fix the heap by moving an entry to a new upper position.
    *
    * @param {Number} startIndex - The index of the entry to move.
+   * @private
    */
   #bubbleUp(startIndex) {
     let entry = this.#heap[startIndex];
@@ -130,6 +134,7 @@ class PriorityQueue {
    * Fix the heap by moving an entry to a new lower position.
    *
    * @param {Number} startIndex - The index of the entry to move.
+   * @private
    */
   #bubbleDown(startIndex) {
     let entry = this.#heap[startIndex];
@@ -167,6 +172,7 @@ class PriorityQueue {
 
   /**
    * Build the heap (from bottom up).
+   * @private
    */
   #buildHeap() {
     // find the index of the last internal node
