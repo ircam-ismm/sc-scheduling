@@ -255,6 +255,25 @@ describe(`# Transport`, () => {
     });
   });
 
+  describe.skip('## non scheduled API', () => {
+    it(`should support more simple API for non scheduled contexts`, () => {
+      const scheduler = new Scheduler(getTime);
+      const transport = new Transport(scheduler);
+
+      const now = getTime();
+      const event1 = transport.start();
+      assert.isBelow(event1.time - now, 1e-3);
+      const event2 = transport.stop();
+      assert.isBelow(event2.time - now, 1e-3);
+      const event3 = transport.pause();
+      assert.isBelow(event3.time - now, 1e-3);
+      const event4 = transport.pause();
+      assert.isBelow(event4.time - now, 1e-3);
+      // const event1 = transport.start();
+      // const event1 = transport.start();
+    });
+  });
+
   describe('## Behaviour', () => {
     it(`start at 0, seek at 23.5, pause at 24.5, seek at 0, start`, async function() {
       this.timeout(6 * 1000);

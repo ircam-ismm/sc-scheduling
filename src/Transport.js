@@ -8,7 +8,31 @@ import TransportEventQueue from './TransportEventQueue.js';
 const kTransportInstance = Symbol('sc-scheduling:transport');
 
 /**
+ * Processor to add into a {@link Transport}.
+ *
+ * The processor will be called back by the Transport on each transport event to
+ * define its behavior according to event. Between these events, it can be called
+ * as a regular {@link SchedulerProcessor} to do some processing.
+ *
+ * Note that the APIs of the `SchedulerProcessor` and of a `TransportProcessor`
+ * are made in such way that it is possible to implement generic processors that
+ * can be added both to a `Scheduler` and to a `Transport`.
+ *
+ * @typedef {function} TransportProcessor
+ *
+ * @param {number} currentPosition - Current position in the timeline of the transport.
+ * @param {number} processorTime - Current time in the timeline of the processor
+ *  see `Scheduler#options.currentTimeToProcessorTimeFunction`.
+ * @param {TransportEvent|SchedulerEvent} event - Event that holds informations
+ *  about the current transport or scheduler call.
+ */
+
+/**
  * The Transport abstraction allows to define and manipulate a timeline.
+ *
+ * All provided Transport commands (e.g. start, stop, etc) can be scheduled in the
+ * underlying scheduler timeline which makes it usable in distributed and synchronized
+ * contexts.
  *
  * @example
  * import { Scheduler, Transport, TransportEvent } from '@ircam/sc-scheduling';
@@ -17,7 +41,7 @@ const kTransportInstance = Symbol('sc-scheduling:transport');
  * const scheduler = new Scheduler(getTime);
  * const transport = new Transport(scheduler);
  *
- * const engine = (position, time, infos) => {
+ * const processor = (position, time, infos) => {
  *   if (infos instanceof TransportEvent) {
  *      // ask to be called back only when the transport is running
  *      return infos.speed > 0 ? position : Infinity;
@@ -26,12 +50,16 @@ const kTransportInstance = Symbol('sc-scheduling:transport');
  *   console.log(position);
  *   return position + 0.1; // ask to be called back every 100ms
  * }
+ *
+ * transport.add(processor);
+ * // start transport in 1 second
+ * transport.start(getTime() + 1);
  */
 class Transport {
   #scheduler = null;
   #bindedTick = null;
   #eventQueue = null;
-  #engines = new Map(); // <Engine, wrappedFunction>
+  #engines = new Map(); // <Processor, wrappedProcessor>
   // we want transport events to be processed before regular engines
   #queuePriority = 1e3;
 
@@ -103,6 +131,7 @@ class Transport {
   /**
    * Start the transport at a given time
    * @param {number} time - Time to execute the command
+   * @return {object|null} Raw event or `null` if event discarded
    */
   start(time) {
     if (!isPositiveNumber(time)) {
@@ -120,6 +149,7 @@ class Transport {
   /**
    * Stop the transport at a given time, position will be reset to zero
    * @param {number} time - Time to execute the command
+   * @return {object|null} Raw event or `null` if event discarded
    */
   stop(time) {
     if (!isPositiveNumber(time)) {
@@ -137,6 +167,7 @@ class Transport {
   /**
    * Pause the transport at a given time, position will remain untouched
    * @param {number} time - Time to execute the command
+   * @return {object|null} Raw event or `null` if event discarded
    */
   pause(time) {
     if (!isPositiveNumber(time)) {
@@ -155,6 +186,7 @@ class Transport {
    * Seek to a new position in the timeline
    * @param {number} time - Time to execute the command
    * @param {number} position - New position
+   * @return {object|null} Raw event or `null` if event discarded
    */
   seek(time, position) {
     if (!isPositiveNumber(time)) {
@@ -178,6 +210,7 @@ class Transport {
    * Toggle the transport loop at a given time
    * @param {number} time - Time to execute the command
    * @param {boolean} loop - Loop state
+   * @return {object|null} Raw event or `null` if event discarded
    */
   loop(time, value) {
     if (!isPositiveNumber(time)) {
@@ -203,6 +236,7 @@ class Transport {
    * Define the transport loop start point at a given time
    * @param {number} time - Time to execute the command
    * @param {number} position - Position of loop start point
+   * @return {object|null} Raw event or `null` if event discarded
    */
   loopStart(time, position) {
     if (!isPositiveNumber(time)) {
@@ -228,6 +262,7 @@ class Transport {
    * Define the transport loop end point at a given time
    * @param {number} time - Time to execute the command
    * @param {number} position - Position of loop end point
+   * @return {object|null} Raw event or `null` if event discarded
    */
   loopEnd(time, position) {
     if (!isPositiveNumber(time)) {
@@ -251,10 +286,12 @@ class Transport {
   /**
    * Define the transport speed at a given time
    *
+   * Note that speed must be strictly positive.
    * _Experimental_
    *
    * @param {number} time - Time to execute the command
    * @param {number} value - Speed to transport time
+   * @return {object|null} Raw event or `null` if event discarded
    */
   speed(time, value) {
     if (!isPositiveNumber(time)) {
@@ -278,6 +315,7 @@ class Transport {
    * Cancel all currently scheduled event after the given time
    *
    * @param {number} time - Time to execute the command
+   * @return {object|null} Raw event or `null` if event discarded
    */
   cancel(time) {
     if (!isPositiveNumber(time)) {
@@ -296,8 +334,20 @@ class Transport {
    * Add raw event to the transport queue.
    *
    * Most of the time, you should use the dedicated higher level methods. However
-   * this is useful to control several transports from a central event producer
-   * (e.g. on the network)
+   * this is useful to control several transports from a central event producer.
+   * In particular this can be used to synchronize several transport on the network
+   * according you have access to a synchronized timeline in which the schedulers
+   * are running, cf. e.g. <https://github.com/ircam-ismm/sync>)
+   *
+   * @example
+   * const scheduler = new Scheduler(getTime);
+   * const primary = new Transport(scheduler);
+   * // create a "copy" of the primary transport
+   * const secondary = new Transport(scheduler, primary.serialize());
+   * // perform some control command and share it with the secondary transport
+   * const event = primary.start(getTime() + 1);
+   * // `event` (as well as `primary.serialize()`) could e.g. be sent over the network
+   * secondary.addEvent(event);
    */
   addEvent(event) {
     // make sure we don't crash the transport if we try to add an event that
@@ -327,7 +377,7 @@ class Transport {
   }
 
   /**
-   * Add a list raw event to the transport queue.
+   * Add a list of raw events to the transport queue.
    */
   addEvents(eventList) {
     return eventList.map(event => this.addEvent(event));

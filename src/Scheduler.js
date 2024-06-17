@@ -29,10 +29,9 @@ export const kSchedulerCompatMode = Symbol('sc-scheduling:compat-mode');
  *
  * @param {number} currentTime - Current time in the timeline of the scheduler
  * @param {number} processorTime - Current time in the timeline of the processor
- *  if it has to trigger events in a different timeline, see
- *  `Scheduler#options.currentTimeToProcessorTimeFunction`.
+ *  see `Scheduler#options.currentTimeToProcessorTimeFunction`.
  * @param {SchedulerEvent} event - Event that holds informations about the current
- *  processor call.
+ *  scheduler call.
  */
 
 /**
@@ -43,6 +42,20 @@ export const kSchedulerCompatMode = Symbol('sc-scheduling:compat-mode');
  * and the weaknesses of the native timers (i.e. `setTimeout` and `setInterval`)
  *
  * For an in-depth explaination of the pattern, see <https://web.dev/audio-scheduling/>
+ *
+ * @example
+ * import { Scheduler } from '@ircam/sc-scheduling';
+ * import { getTime } from '@ircam/sc-utils';
+ *
+ * const scheduler = new Scheduler(getTime);
+ *
+ * const processor = (currentTime, processorTime, infos) => {
+ *   console.log(currentTime);
+ *   return currentTime + 0.1; // ask to be called back every 100ms
+ * }
+ *
+ * // start processor in 1 second
+ * scheduler.add(processor, getTime() + 1);
  */
 class Scheduler {
   #getTimeFunction = null;

@@ -2,6 +2,8 @@
 
 Simple library to schedule events in Node.js and the browser.
 
+The abstractions provided by the library are built in such way that they can be used in distributed contexts, allowing to synchronize events and controls among multiple devices and clients.
+
 ## Install
 
 ```
