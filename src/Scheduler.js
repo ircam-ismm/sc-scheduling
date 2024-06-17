@@ -236,9 +236,9 @@ class Scheduler {
    * @example
    * const scheduler = new Scheduler(getTime);
    *
-   * scheduler.add((currentTime, audioTime) => {
+   * scheduler.add((currentTime, processorTime) => {
    *   // schedule some audio event
-   *   playSomeSoundAt(audioTime);
+   *   playSomeSoundAt(processorTime);
    *   // defer execution of visual display to compensate the tickLookahead
    *   scheduler.defer(displaySomeSynchronizedStuff, currentTime);
    *   // ask the scheduler to call back in 1 second
@@ -246,12 +246,12 @@ class Scheduler {
    * });
    */
   defer(deferedProcessor, time) {
-    const processor = (currentTime, audioTime, event) => {
+    const processor = (currentTime, processorTime, event) => {
       setTimeout(() => {
         const now = this.#getTimeFunction();
         event[kTickLookahead] = currentTime - now;
 
-        deferedProcessor(currentTime, audioTime, event);
+        deferedProcessor(currentTime, processorTime, event);
       }, Math.ceil(event.tickLookahead * 1000));
 
       // clear processor
@@ -424,11 +424,11 @@ class Scheduler {
       // the scheduled event
       this.#event[kTickLookahead] = queueTime - tickTime;
       // grab related audio time if a transfert function has been given
-      const audioTime = this.#currentTimeToProcessorTimeFunction(queueTime);
+      const processorTime = this.#currentTimeToProcessorTimeFunction(queueTime);
       let nextTime;
 
       try {
-        nextTime = processor(queueTime, audioTime, this.#event);
+        nextTime = processor(queueTime, processorTime, this.#event);
       } catch (err) {
         console.warn(`Running processor threw an error, processor removed from scheduler`);
         console.log(err);

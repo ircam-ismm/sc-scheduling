@@ -1,13 +1,13 @@
 # simple-transport
 
-Simple demonstrator of Transport use
+Simple demonstrator for `Transport`
 
 cf. <./src/index.js> for code.
 
 ## Usage
 
 ```
-cd path/to/dir
+cd ./examples/simple-transport
 npx serve
 ```
 

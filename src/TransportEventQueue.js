@@ -14,7 +14,7 @@ export default class TransportControlEventQueue {
       position: 0,
       speed: 0,
       loop: false,
-      loopStart: 0,
+      loopStart: -Infinity,
       loopEnd: Infinity,
     };
     this.previousState = null;
@@ -48,9 +48,11 @@ export default class TransportControlEventQueue {
       throw new Error(`Invalid event type: "${event.type}"`);
     }
 
-    // cannot schedule event in the past
+    // Prevent scheduling an event before current `state.time`. Note that this does
+    // not prevent to schedule an event in the past according to scheduler currentTime,
+    // which is desirable to mitigate possible network latencies
     if (this.state && this.state.time > event.time) {
-      console.error(`Connot add event in TransportEventQueue: trying to schedule an event in the past, aborting...`);
+      console.error(`Cannot execute 'add' on TransportEventQueue: Given 'event.time' is before current 'state.time'. Aborting...`);
       return null;
     }
 

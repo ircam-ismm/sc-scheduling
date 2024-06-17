@@ -149,7 +149,7 @@ describe(`TransportEventQueue`, () => {
         speed: 1,
         position: 0,
         loop: false,
-        loopStart: 0,
+        loopStart: -Infinity,
         loopEnd: Infinity,
       });
 
@@ -169,7 +169,7 @@ describe(`TransportEventQueue`, () => {
         speed: 0,
         position: 2,
         loop: false,
-        loopStart: 0,
+        loopStart: -Infinity,
         loopEnd: Infinity,
       });
 
@@ -189,7 +189,7 @@ describe(`TransportEventQueue`, () => {
         speed: 0,
         position: 42,
         loop: false,
-        loopStart: 0,
+        loopStart: -Infinity,
         loopEnd: Infinity,
       });
 
@@ -211,7 +211,7 @@ describe(`TransportEventQueue`, () => {
         speed: 0,
         position: 42,
         loop: true,
-        loopStart: 0,
+        loopStart: -Infinity,
         loopEnd: Infinity,
       });
     });

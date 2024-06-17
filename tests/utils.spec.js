@@ -11,7 +11,7 @@ describe('# quantize(value, precision = 1e-9)', () => {
   });
 
   // this fails
-  // it.only('test #2', () => {
+  // it('test #2', () => {
   //   // before 0.005307370001000001
   //   // after 0.0053073700000000005
   //   const a = 0.005307370001000001;
@@ -19,7 +19,7 @@ describe('# quantize(value, precision = 1e-9)', () => {
   // });
 
   // this is wrong too
-  // it.only(`test #3`, () => {
+  // it(`test #3`, () => {
   //   for (let i = 0; i < 1e6; i++) {
   //     const rand = Math.random() * 1000;
   //     const quantized = quantize(rand);

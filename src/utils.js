@@ -34,3 +34,7 @@ export function cloneDeep(obj) {
 }
 
 export const identity = t => t;
+
+export function isPositiveNumber(value) {
+  return Number.isFinite(value) && value >= 0;
+}

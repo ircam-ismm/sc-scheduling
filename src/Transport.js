@@ -1,15 +1,11 @@
 import { isNumber, isFunction } from '@ircam/sc-utils';
 
-import { quantize, cloneDeep } from './utils.js';
+import { quantize, cloneDeep, isPositiveNumber } from './utils.js';
 import Scheduler from './Scheduler.js';
 import TransportEvent from './TransportEvent.js';
 import TransportEventQueue from './TransportEventQueue.js';
 
 const kTransportInstance = Symbol('sc-scheduling:transport');
-
-function isPositiveNumber(value) {
-  return Number.isFinite(value) && value >= 0;
-}
 
 /**
  * The Transport abstraction allows to define and manipulate a timeline.
@@ -58,15 +54,20 @@ class Transport {
 
     if (initialState !== null) {
       this.#eventQueue.state = initialState.currentState;
-      this.#eventQueue.scheduledEvents = initialState.scheduledEvents;
+      // init scheduler
+      this.addEvents(initialState.scheduledEvents);
     }
   }
 
   /**
-   * Retrieves the current state and event queue for the transport
+   * Retrieves the current state and event queue for the transport as a raw object.
+   *
+   * The returned value can be used to initialize the state of another synchronized
+   * transport, cf. `initialValue` argument from constructor.
+   *
+   * @return {object}
    */
-  dumpState() {
-    // @todo - replace with proper class with getters
+  serialize() {
     return {
       currentState: cloneDeep(this.#eventQueue.state),
       scheduledEvents: cloneDeep(this.#eventQueue.scheduledEvents),
@@ -95,8 +96,8 @@ class Transport {
    * Scheduler current audio time
    * @type {Scheduler}
    */
-  get audioTime() {
-    return this.#scheduler.audioTime;
+  get processorTime() {
+    return this.#scheduler.processorTime;
   }
 
   /**
@@ -160,8 +161,8 @@ class Transport {
       throw new TypeError(`Cannot execute 'seek' on 'Transport': argument 1 (time) should be a positive number`);
     }
 
-    if (!isPositiveNumber(position)) {
-      throw new TypeError(`Cannot execute 'seek' on 'Transport': argument 2 (position) should be a positive number`);
+    if (!Number.isFinite(position)) {
+      throw new TypeError(`Cannot execute 'seek' on 'Transport': argument 2 (position) should be a finite number`);
     }
 
     const event = {
@@ -208,8 +209,8 @@ class Transport {
       throw new TypeError(`Cannot execute 'loopStart' on 'Transport': argument 1 (time) should be a positive number`);
     }
 
-    if (!isPositiveNumber(position)) {
-      throw new TypeError(`Cannot execute 'loopStart' on 'Transport': argument 2 (position) should be a positive number`);
+    if (position !== -Infinity && !Number.isFinite(position)) {
+      throw new TypeError(`Cannot execute 'loopStart' on 'Transport': argument 2 (position) should be either a finite number or -Infinity`);
     }
 
     const event = {
@@ -234,8 +235,8 @@ class Transport {
     }
 
     // accept Infnity
-    if (position !== Infinity && !isPositiveNumber(position)) {
-      throw new TypeError(`Cannot execute 'loopEnd' on 'Transport': argument 2 (position) should be a positive number`);
+    if (position !== Infinity && !Number.isFinite(position)) {
+      throw new TypeError(`Cannot execute 'loopStart' on 'Transport': argument 2 (position) should be either a finite number or Infinity`);
     }
 
     const event = {
@@ -274,7 +275,8 @@ class Transport {
   }
 
   /**
-   * Cancel all event currently scheduled after the given time
+   * Cancel all currently scheduled event after the given time
+   *
    * @param {number} time - Time to execute the command
    */
   cancel(time) {
@@ -298,6 +300,12 @@ class Transport {
    * (e.g. on the network)
    */
   addEvent(event) {
+    // make sure we don't crash the transport if we try to add an event that
+    // as been discarded when synchronizing several states on a master
+    if (event === null) {
+      return null;
+    }
+
     // grab next before adding event, as it may be replaced by the new event
     const next = this.#eventQueue.next;
     const enqueued = this.#eventQueue.add(event);
@@ -314,6 +322,7 @@ class Transport {
       }
     }
 
+    // console.log(enqueued);
     return enqueued;
   }
 
@@ -358,10 +367,10 @@ class Transport {
     engine[kTransportInstance] = this;
 
     // infos can be SchedulerInfos or TransportEvent
-    const wrappedEngine = (function wrappedEngine(currentTime, audioTime, infos) {
+    const wrappedEngine = (function wrappedEngine(currentTime, processorTime, infos) {
       // execute engine in transport timeline
       const position = this.getPositionAtTime(currentTime); // quantized
-      const nextPosition = engine(position, audioTime, infos);
+      const nextPosition = engine(position, processorTime, infos);
 
       if (isNumber(nextPosition)) {
         return this.#eventQueue.getTimeAtPosition(nextPosition);
@@ -380,7 +389,7 @@ class Transport {
     // @todo - using scheduler current time is not good as it may include
     // lookahead
     const currentTime = this.currentTime;
-    const audioTime = this.audioTime;
+    const processorTime = this.processorTime;
     const state = cloneDeep(this.#eventQueue.state);
     state.eventType = 'init';
     const tickLookahead = state.time - currentTime;
@@ -388,7 +397,7 @@ class Transport {
 
     this.#scheduler.add(wrappedEngine, Infinity);
     // allow engine to reset it's position in scheduler
-    this.#tickEngine(wrappedEngine, currentTime, audioTime, transportEvent);
+    this.#tickEngine(wrappedEngine, currentTime, processorTime, transportEvent);
   }
 
   /**
@@ -431,7 +440,7 @@ class Transport {
     this.stop(this.currentTime);
   }
 
-  #tick(currentTime, audioTime, schedulerInfos) {
+  #tick(currentTime, processorTime, schedulerInfos) {
     const state = this.#eventQueue.dequeue();
     // @todo - implemeent
     const transportEvent = new TransportEvent(state, schedulerInfos.tickLookahead);
@@ -443,7 +452,7 @@ class Transport {
     // position is done inside the engine itself. Then, we can just propagate the
     // values received from the scheduler in a straightforward way.
     for (let engine of this.#engines.values()) {
-      this.#tickEngine(engine, currentTime, audioTime, transportEvent);
+      this.#tickEngine(engine, currentTime, processorTime, transportEvent);
     }
 
     // return time of next transport event
@@ -454,11 +463,11 @@ class Transport {
     }
   }
 
-  #tickEngine(engine, currentTime, audioTime, transportEvent) {
+  #tickEngine(engine, currentTime, processorTime, transportEvent) {
     let resetTime;
 
     try {
-      resetTime = engine(currentTime, audioTime, transportEvent);
+      resetTime = engine(currentTime, processorTime, transportEvent);
     } catch(err) {
       console.error(err);
     }

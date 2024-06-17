@@ -5,22 +5,6 @@ import Transport from '../src/Transport.js';
 import TransportEvent from '../src/TransportEvent.js';
 import Scheduler from '../src/Scheduler.js';
 
-/**
- * # TODOS
- *
- * - [ ] add(engine)
- *   // what happens if transport is started?
- * - [ ] has(engine)
- * - [ ] remove(engine)
- * - [x] loop
- * - [x] speed
- * - [x] cancel
- * - [ ] controls / addEvent -> slave one transport to another one
- * - [ ] getState / setState -> slave one transport to an existing one
- * - [ ] addEvent -> remote control
- * - [ ] engine respond to TransportEvent in the past
- */
-
 describe(`# Transport`, () => {
   describe('## constructor', () => {
     it(`should throw if argument 1 is not an instance of Scheduler`, () => {
@@ -73,24 +57,28 @@ describe(`# Transport`, () => {
   });
 
   describe('## seek(time, position)', () => {
-    it('should throw if argument 1 is not a positive number', () => {
+    it('should throw if argument 1 is not a positive finite number', () => {
       const scheduler = new Scheduler(getTime);
       const transport = new Transport(scheduler);
 
       assert.throws(() => transport.seek({}, 0));
       assert.throws(() => transport.seek(null, 0));
       assert.throws(() => transport.seek(-1, 0));
+      assert.throws(() => transport.seek(+Infinity, 0));
+      // support positive and negative values
       transport.seek(0, 0);
     });
 
-    it('should throw if argument 2 is not a positive number', () => {
+    it('should throw if argument 2 is not a finite number', () => {
       const scheduler = new Scheduler(getTime);
       const transport = new Transport(scheduler);
 
       assert.throws(() => transport.seek(1, {}));
       assert.throws(() => transport.seek(1, null));
-      assert.throws(() => transport.seek(1, -1));
-      transport.seek(1, 0);
+      assert.throws(() => transport.seek(1, -Infinity));
+      assert.throws(() => transport.seek(1, +Infinity));
+      transport.seek(1, -1);
+      transport.seek(1, 1);
     });
   });
 
@@ -118,14 +106,16 @@ describe(`# Transport`, () => {
 
 
   describe('## loopStart(time, position)', () => {
-    it(`should throw if value is not a positive number`, () => {
+    it(`should throw if value is not a finite number or -Infinity`, () => {
       const scheduler = new Scheduler(getTime);
       const transport = new Transport(scheduler);
 
-      assert.throws(() => transport.loopStart(0, -1));
+      assert.throws(() => transport.loopStart(0, {}));
       assert.throws(() => transport.loopStart(0, null));
+      assert.throws(() => transport.loopStart(0, Infinity));
 
       transport.loopStart(0, 0);
+      transport.loopStart(0, -Infinity);
     });
 
     it.skip(`should throw if given value is greater than or equal to loopEnd`, () => {
@@ -140,14 +130,16 @@ describe(`# Transport`, () => {
   });
 
   describe('## loopEnd(time, position)', () => {
-    it(`should throw if value is not a positive number`, () => {
+    it(`should throw if value is not a finite number or +Infinity`, () => {
       const scheduler = new Scheduler(getTime);
       const transport = new Transport(scheduler);
 
-      assert.throws(() => transport.loopEnd(0, -1));
+      assert.throws(() => transport.loopEnd(0, {}));
       assert.throws(() => transport.loopEnd(0, null));
+      assert.throws(() => transport.loopEnd(0, -Infinity));
 
       transport.loopEnd(0, 1);
+      transport.loopEnd(0, Infinity);
     });
 
     it.skip(`should throw if given value is lower than or equal to loopStart`, () => {
@@ -248,6 +240,18 @@ describe(`# Transport`, () => {
       await delay(1000);
       // the test should just exit properly
       transport.clear();
+    });
+  });
+
+  describe('## addEvent()', () => {
+    it(`should not throw if adding a null event`, async () => {
+      const scheduler = new Scheduler(getTime);
+      const master = new Transport(scheduler);
+      const slave = new Transport(scheduler);
+
+      const event = master.start(0); // event is discarded as we try to schedule in the past
+      assert.isNull(event);
+      slave.addEvent(event); // should not throw
     });
   });
 
@@ -366,7 +370,7 @@ describe(`# Transport`, () => {
       await delay(5000);
     });
 
-    it.only(`start at 0, loop between 1 and 2`, async function() {
+    it(`start at 0, loop between 1 and 2`, async function() {
       this.timeout(6000);
 
       const scheduler = new Scheduler(getTime);
@@ -415,7 +419,7 @@ describe(`# Transport`, () => {
       transport.pause(getTime());
     });
 
-    it.only(`start at 0, loop between 1 and 2, speed 0.5`, async function() {
+    it(`start at 0, loop between 1 and 2, speed 0.5`, async function() {
       this.timeout(6000);
 
       const scheduler = new Scheduler(getTime);
@@ -465,6 +469,56 @@ describe(`# Transport`, () => {
       transport.pause(getTime());
     });
 
+    it(`start at -1.5, loop between -0.5 and 5`, async function() {
+      this.timeout(6000);
+      const scheduler = new Scheduler(getTime);
+      const transport = new Transport(scheduler);
+
+      // make sure transport event are always triggered before "regular" scheduler ticks
+      let transportEventTime = Infinity;
+      let transportEventPosition = Infinity;
+      let tickTime = -Infinity;
+
+      const engine = (position, time, event) => {
+        if (event instanceof TransportEvent) {
+          transportEventTime = time;
+          transportEventPosition = position;
+
+          // transport events time should be strictly higher than tick time
+          assert.isTrue(time > tickTime);
+
+          console.log('[TransportEvent]', position, '\t', time, event);
+          console.log('[TransportEvent] return', event.speed > 0 ? position : Infinity);
+          return event.speed > 0 ? position : Infinity;
+        }
+
+        console.log('[Scheduler tick]', position, '\t', time);
+
+        tickTime = time;
+
+        assert.isTrue(time >= transportEventTime);
+        assert.isTrue(position >= transportEventPosition);
+
+        return position + 0.1;
+      };
+
+      // start from 0 to 2, then loop between 1 and 2
+      transport.add(engine);
+
+      const now = getTime();
+
+      transport.seek(now, -1.5);
+      transport.loopStart(now, -0.5);
+      transport.loopEnd(now, 0.5);
+      transport.loop(now, true);
+      transport.start(now);
+
+      await delay(5000);
+
+      transport.remove(engine);
+      transport.stop(getTime());
+    });
+
     it(`synchronized transports`, async function() {
       this.timeout(8000);
 
@@ -500,7 +554,7 @@ describe(`# Transport`, () => {
 
       // second 1 - slave starts
       await delay(1000);
-      const slave = new Transport(scheduler, master.dumpState());
+      const slave = new Transport(scheduler, master.serialize());
       const engine2 = new Engine('slave');
       slave.add(engine2.tick);
 
