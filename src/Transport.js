@@ -470,8 +470,7 @@ class Transport {
     //   this.#scheduler.remove(engine);
     // }
 
-    // no need for further checks, or conversion, everything is done in wrapped engine
-    console.log('resetTime', resetTime);
+    // no need for further check or conversion, everything is done in processor wrapper
     this.#scheduler.reset(engine, resetTime);
   }
 }

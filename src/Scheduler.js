@@ -73,6 +73,18 @@ class Scheduler {
    *  example to map between a synchronized timeline and an AudioContext own timeline.
    * @param {number} [options.maxRecursions=100] - Number of maximum calls
    *  at same time before the processor is rejected from the scheduler
+   *
+   * @example
+   * import { scheduler } from '@ircam/sc-scheduling';
+   *
+   * const getTime = () => performance.now() / 1000;
+   * const scheduler = new Scheduler(getTime);
+   * const processor = currentTime => {
+   *   console.log(currentTime);
+   *   // ask to be called back in 1 sec
+   *   return currentTime + 1;
+   * }
+   * scheduler.add(processor);
    */
   constructor(getTimeFunction, {
     period = 0.025,
@@ -132,8 +144,11 @@ class Scheduler {
   }
 
   /**
-   * Minimum period at which the scheduler checks for events, in seconds.
+   * Period of the scheduler, in seconds.
+   *
+   * Minimum time span between the scheduler checks for events, in seconds.
    * Throws if negative or greater than lookahead.
+   *
    * @type {number}
    */
   get period() {
