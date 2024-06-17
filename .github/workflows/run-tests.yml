@@ -1,0 +1,21 @@
+name: run-tests
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 'Install Node'
+        uses: actions/setup-node@v4
+
+      - name: Install lib dependencies
+        run: npm install
+
+      - name: Build docs
+        run: npm run test
