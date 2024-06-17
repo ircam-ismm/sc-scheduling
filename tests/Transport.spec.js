@@ -366,7 +366,7 @@ describe(`# Transport`, () => {
       await delay(5000);
     });
 
-    it(`start at 0, loop between 1 and 2`, async function() {
+    it.only(`start at 0, loop between 1 and 2`, async function() {
       this.timeout(6000);
 
       const scheduler = new Scheduler(getTime);
@@ -407,6 +407,56 @@ describe(`# Transport`, () => {
       transport.loopStart(now, 1);
       transport.loopEnd(now, 2);
       transport.loop(now, true);
+      transport.start(now);
+
+      await delay(5000);
+
+      transport.remove(engine);
+      transport.pause(getTime());
+    });
+
+    it.only(`start at 0, loop between 1 and 2, speed 0.5`, async function() {
+      this.timeout(6000);
+
+      const scheduler = new Scheduler(getTime);
+      const transport = new Transport(scheduler);
+
+      // make sure transport event are always triggered before "regular" scheduler ticks
+      let transportEventTime = Infinity;
+      let transportEventPosition = Infinity;
+      let tickTime = -Infinity;
+
+      const engine = (position, time, event) => {
+        if (event instanceof TransportEvent) {
+          transportEventTime = time;
+          transportEventPosition = position;
+
+          // transport events time should be strictly higher than tick time
+          assert.isTrue(time > tickTime);
+
+          console.log('[TransportEvent]', position, '\t', time, event);
+          console.log('[TransportEvent] return', event.speed > 0 ? position : Infinity);
+          return event.speed > 0 ? position : Infinity;
+        }
+
+        console.log('[Scheduler tick]', position, '\t', time);
+
+        tickTime = time;
+
+        assert.isTrue(time >= transportEventTime);
+        assert.isTrue(position >= transportEventPosition);
+
+        return position + 0.1;
+      };
+
+      // start from 0 to 2, then loop between 1 and 2
+      transport.add(engine);
+
+      const now = getTime();
+      transport.loopStart(now, 0.5);
+      transport.loopEnd(now, 1);
+      transport.loop(now, true);
+      transport.speed(now, 0.5);
       transport.start(now);
 
       await delay(5000);

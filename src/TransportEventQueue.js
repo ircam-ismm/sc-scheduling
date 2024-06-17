@@ -155,15 +155,7 @@ export default class TransportControlEventQueue {
     if (this.state.loop && this.state.speed > 0) {
       // insert loop-point event in timeline according to what we know, if state
       // change in between the loop-point be reinserted at its right position.
-      if (this.state.eventType === 'loop-point') {
-        const event = {
-          type: 'loop-point',
-          time: this.state.time + (this.state.loopEnd - this.state.loopStart),
-          position: this.state.loopStart, // is rather abitrary but probably more convenient
-        }
-
-        this.add(event);
-      } else if (this.state.position < this.state.loopEnd) {
+      if (this.state.position < this.state.loopEnd) {
         const event = {
           type: 'loop-point',
           time: this.getTimeAtPosition(this.state.loopEnd),
