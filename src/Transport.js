@@ -59,8 +59,8 @@ class Transport {
   #scheduler = null;
   #bindedTick = null;
   #eventQueue = null;
-  #engines = new Map(); // <Processor, wrappedProcessor>
-  // we want transport events to be processed before regular engines
+  #processors = new Map(); // <Processor, wrappedProcessor>
+  // we want transport events to be processed before regular processors
   #queuePriority = 1e3;
 
   /**
@@ -400,50 +400,50 @@ class Transport {
   }
 
   /**
-   * Add an engine to the transport.
+   * Add an processor to the transport.
    *
    * When a processor is added to the transport, it called with an 'init' event
    * to allow it to respond properly to the current state of the transport.
    * For example, if the transport has already been started.
    *
-   * @param {function} engine - Engine to add to the transport
-   * @throws Throw if the engine has already been added to this or another transport
+   * @param {TransportProcessor} processor - Engine to add to the transport
+   * @throws Throw if the processor has already been added to this or another transport
    */
-  add(engine) {
-    if (!isFunction(engine)) {
+  add(processor) {
+    if (!isFunction(processor)) {
       throw new TypeError(`Cannot execute 'add' on 'Transport': argument 1 is not a function`);
     }
 
-    if (engine[kTransportInstance] !== undefined) {
-      if (engine[kTransportInstance] !== this) {
-        throw new DOMException(`Cannot execute 'add' on 'Transport': engine already added to another transport`, 'NotSupportedError');
+    if (processor[kTransportInstance] !== undefined) {
+      if (processor[kTransportInstance] !== this) {
+        throw new DOMException(`Cannot execute 'add' on 'Transport': processor already added to another transport`, 'NotSupportedError');
       } else {
-        throw new DOMException(`Cannot execute 'add' on 'Transport': engine already added this transport`, 'NotSupportedError');
+        throw new DOMException(`Cannot execute 'add' on 'Transport': processor already added this transport`, 'NotSupportedError');
       }
     }
 
-    engine[kTransportInstance] = this;
+    processor[kTransportInstance] = this;
 
     // infos can be SchedulerInfos or TransportEvent
     const wrappedEngine = (function wrappedEngine(currentTime, processorTime, infos) {
-      // execute engine in transport timeline
+      // execute processor in transport timeline
       const position = this.getPositionAtTime(currentTime); // quantized
-      const nextPosition = engine(position, processorTime, infos);
+      const nextPosition = processor(position, processorTime, infos);
 
       if (isNumber(nextPosition)) {
         return this.#eventQueue.getTimeAtPosition(nextPosition);
       } else {
-        // make sure engines do not remove themselves from the scheduler
+        // make sure processors do not remove themselves from the scheduler
         return Infinity;
       }
     }).bind(this);
 
-    this.#engines.set(engine, wrappedEngine);
+    this.#processors.set(processor, wrappedEngine);
 
     // @todo - handle case where transport is in running state
     // add to scheduler at Infinity, children should never be removed from scheduler
 
-    // call engine tick method according to current transport state
+    // call processor tick method according to current transport state
     // @todo - using scheduler current time is not good as it may include
     // lookahead
     const currentTime = this.currentTime;
@@ -454,44 +454,44 @@ class Transport {
     const transportEvent = new TransportEvent(state, tickLookahead);
 
     this.#scheduler.add(wrappedEngine, Infinity);
-    // allow engine to reset it's position in scheduler
+    // allow processor to reset it's position in scheduler
     this.#tickEngine(wrappedEngine, currentTime, processorTime, transportEvent);
   }
 
   /**
-   * Define if a given engine has been added to the transport
+   * Define if a given processor has been added to the transport
    *
-   * @param {function} engine - Engine to check
+   * @param {TransportProcessor} processor - Engine to check
    * @return {boolean}
    */
-  has(engine) {
-    return this.#engines.has(engine);
+  has(processor) {
+    return this.#processors.has(processor);
   }
 
   /**
-   * Remove an engine from the transport
+   * Remove an processor from the transport
    *
-   * @param {function} engine - Engine to remove from the transport
-   * @throws Throw if the engine has not been added to the transport
+   * @param {TransportProcessor} processor - Engine to remove from the transport
+   * @throws Throw if the processor has not been added to the transport
    */
-  remove(engine) {
-    if (!this.has(engine)) {
-      throw new DOMException(`Cannot execute 'remove' on 'Transport': engine does not belong to this transport`, 'NotSupportedError');
+  remove(processor) {
+    if (!this.has(processor)) {
+      throw new DOMException(`Cannot execute 'remove' on 'Transport': processor does not belong to this transport`, 'NotSupportedError');
     }
 
-    const wrappedEngine = this.#engines.get(engine);
+    const wrappedEngine = this.#processors.get(processor);
     // remove from scheduler
     this.#scheduler.remove(wrappedEngine);
-    this.#engines.delete(engine);
-    delete engine[kTransportInstance];
+    this.#processors.delete(processor);
+    delete processor[kTransportInstance];
   }
 
   /**
-   * Remove all engines, cancel all registered transport event and pause transport
+   * Remove all processors, cancel all registered transport event and pause transport
    */
   clear() {
-    for (let engine of this.#engines.keys()) {
-      this.remove(engine);
+    for (let processor of this.#processors.keys()) {
+      this.remove(processor);
     }
 
     this.cancel(this.currentTime);
@@ -505,11 +505,11 @@ class Transport {
     // Propagate transport event to all childrens, so that they can define their
     // position and reset their next time in scheduler.
     //
-    // Note that we use the wrapped engine, so all convertions between time and
-    // position is done inside the engine itself. Then, we can just propagate the
+    // Note that we use the wrapped processor, so all convertions between time and
+    // position is done inside the processor itself. Then, we can just propagate the
     // values received from the scheduler in a straightforward way.
-    for (let engine of this.#engines.values()) {
-      this.#tickEngine(engine, currentTime, processorTime, transportEvent);
+    for (let processor of this.#processors.values()) {
+      this.#tickEngine(processor, currentTime, processorTime, transportEvent);
     }
 
     // return time of next transport event
@@ -520,11 +520,11 @@ class Transport {
     }
   }
 
-  #tickEngine(engine, currentTime, processorTime, transportEvent) {
+  #tickEngine(processor, currentTime, processorTime, transportEvent) {
     let resetTime;
 
     try {
-      resetTime = engine(currentTime, processorTime, transportEvent);
+      resetTime = processor(currentTime, processorTime, transportEvent);
     } catch(err) {
       console.error(err);
     }
@@ -532,12 +532,12 @@ class Transport {
     // @todo - This can fail due to back and forth conversions between time and position
     // Check that resetTime >= currentTime
     // if (resetTime < currentTime) {
-    //   console.warn('Handling TransportEvent cannot lead to scheduling in the past, removing faulty engine');
-    //   this.#scheduler.remove(engine);
+    //   console.warn('Handling TransportEvent cannot lead to scheduling in the past, removing faulty processor');
+    //   this.#scheduler.remove(processor);
     // }
 
     // no need for further check or conversion, everything is done in processor wrapper
-    this.#scheduler.reset(engine, resetTime);
+    this.#scheduler.reset(processor, resetTime);
   }
 }
 
