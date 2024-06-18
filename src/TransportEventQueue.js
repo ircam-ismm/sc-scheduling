@@ -51,8 +51,8 @@ export default class TransportControlEventQueue {
     // Prevent scheduling an event before current `state.time`. Note that this does
     // not prevent to schedule an event in the past according to scheduler currentTime,
     // which is desirable to mitigate possible network latencies
-    if (this.state && this.state.time > event.time) {
-      console.error(`Cannot execute 'add' on TransportEventQueue: Given 'event.time' is before current 'state.time'. Aborting...`);
+    if (this.state.time > event.time) {
+      console.error(`Cannot execute 'add' on TransportEventQueue: Given 'event.time' is before current 'state.time'. Aborting...`, event);
       return null;
     }
 

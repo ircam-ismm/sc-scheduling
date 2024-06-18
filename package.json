@@ -9,8 +9,11 @@
   "license": "BSD-3-Clause",
   "unpkg": "./build/bundle.js",
   "exports": {
-    ".": "./src/index.js",
-    "./": "./src/"
+    ".": {
+      "module": "./src/index.js",
+      "node": "./src/index.js",
+      "types": "./types/index.d.ts"
+    }
   },
   "type": "module",
   "publishConfig": {
@@ -35,14 +38,23 @@
     "doc": "npm run api",
     "preversion": "npm run build",
     "test": "mocha tests/*.spec.js",
-    "test:only": "mocha"
+    "test:only": "mocha",
+    "types": "rm -rf types && tsc",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {
     "@ircam/sc-gettime": "^1.0.1",
     "chai": "^4.3.7",
+    "documentation": "^14.0.3",
     "esbuild": "^0.19.8",
+    "jsdoc-to-markdown": "^8.0.1",
     "jsdoc-to-readme": "^2.0.2",
-    "mocha": "^10.1.0"
+    "mocha": "^10.1.0",
+    "typescript": "^5.4.5",
+    "vitepress": "^1.2.3",
+    "vue": "^3.4.29"
   },
   "dependencies": {
     "@ircam/sc-utils": "^1.3.0"

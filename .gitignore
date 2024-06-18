@@ -7,3 +7,9 @@ package-lock.json
 build
 
 TODOS.md
+
+docs/.vitepress/dist
+docs/.vitepress/cache
+
+_docs
+docs

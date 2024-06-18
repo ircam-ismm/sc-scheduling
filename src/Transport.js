@@ -113,27 +113,44 @@ class Transport {
   // get currentPosition() {}
 
   /**
-   * Scheduler current time
-   * @type {Scheduler}
+   * Current time from scheduler timeline
+   * @type {number}
    */
   get currentTime() {
     return this.#scheduler.currentTime;
   }
 
   /**
-   * Scheduler current audio time
-   * @type {Scheduler}
+   * Current processor time.
+   * @type {number}
    */
   get processorTime() {
     return this.#scheduler.processorTime;
   }
 
   /**
+   * Current transport position
+   * @type {number}
+   */
+  get position() {
+    this.getPositionAtTime(this.currentTime);
+  }
+
+  /**
+   * Estimated position at given time according to the transport current state.
+   * @param {number} time - Time to convert to position
+   * @return {number}
+   */
+  getPositionAtTime(time) {
+    return quantize(this.#eventQueue.getPositionAtTime(time));
+  }
+
+  /**
    * Start the transport at a given time
-   * @param {number} time - Time to execute the command
+   * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
    */
-  start(time) {
+  start(time = this.currentTime) {
     if (!isPositiveNumber(time)) {
       throw new TypeError(`Cannot execute 'start' on 'Transport': argument 1 (time) should be a positive number`);
     }
@@ -148,10 +165,10 @@ class Transport {
 
   /**
    * Stop the transport at a given time, position will be reset to zero
-   * @param {number} time - Time to execute the command
+   * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
    */
-  stop(time) {
+  stop(time = this.currentTime) {
     if (!isPositiveNumber(time)) {
       throw new TypeError(`Cannot execute 'stop' on 'Transport': argument 1 (time) should be a positive number`);
     }
@@ -166,10 +183,10 @@ class Transport {
 
   /**
    * Pause the transport at a given time, position will remain untouched
-   * @param {number} time - Time to execute the command
+   * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
    */
-  pause(time) {
+  pause(time = this.currentTime) {
     if (!isPositiveNumber(time)) {
       throw new TypeError(`Cannot execute 'pause' on 'Transport': argument 1 (time) should be a positive number`);
     }
@@ -184,17 +201,17 @@ class Transport {
 
   /**
    * Seek to a new position in the timeline
-   * @param {number} time - Time to execute the command
-   * @param {number} position - New position
+   * @param {number} position - New transport position
+   * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
    */
-  seek(time, position) {
-    if (!isPositiveNumber(time)) {
-      throw new TypeError(`Cannot execute 'seek' on 'Transport': argument 1 (time) should be a positive number`);
+  seek(position, time = this.currentTime) {
+    if (!Number.isFinite(position)) {
+      throw new TypeError(`Cannot execute 'seek' on 'Transport': argument 1 (position) should be a finite number`);
     }
 
-    if (!Number.isFinite(position)) {
-      throw new TypeError(`Cannot execute 'seek' on 'Transport': argument 2 (position) should be a finite number`);
+    if (!isPositiveNumber(time)) {
+      throw new TypeError(`Cannot execute 'seek' on 'Transport': argument 2 (time) should be a positive number`);
     }
 
     const event = {
@@ -208,17 +225,17 @@ class Transport {
 
   /**
    * Toggle the transport loop at a given time
-   * @param {number} time - Time to execute the command
-   * @param {boolean} loop - Loop state
+   * @param {boolean} value - Loop state
+   * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
    */
-  loop(time, value) {
-    if (!isPositiveNumber(time)) {
-      throw new TypeError(`Cannot execute 'loop' on 'Transport': argument 1 (time) should be a positive number`);
-    }
-
+  loop(value, time = this.currentTime) {
     if (typeof value !== 'boolean') {
       throw new TypeError(`Cannot execute 'loop' on 'Transport': argument 2 (value) should be a boolean`);
+    }
+
+    if (!isPositiveNumber(time)) {
+      throw new TypeError(`Cannot execute 'loop' on 'Transport': argument 1 (time) should be a positive number`);
     }
 
     const event = {
@@ -234,17 +251,17 @@ class Transport {
   // - drop event when it's dequeued?
   /**
    * Define the transport loop start point at a given time
-   * @param {number} time - Time to execute the command
    * @param {number} position - Position of loop start point
+   * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
    */
-  loopStart(time, position) {
-    if (!isPositiveNumber(time)) {
-      throw new TypeError(`Cannot execute 'loopStart' on 'Transport': argument 1 (time) should be a positive number`);
+  loopStart(position, time = this.currentTime) {
+    if (position !== -Infinity && !Number.isFinite(position)) {
+      throw new TypeError(`Cannot execute 'loopStart' on 'Transport': argument 1 (position) should be either a finite number or -Infinity`);
     }
 
-    if (position !== -Infinity && !Number.isFinite(position)) {
-      throw new TypeError(`Cannot execute 'loopStart' on 'Transport': argument 2 (position) should be either a finite number or -Infinity`);
+    if (!isPositiveNumber(time)) {
+      throw new TypeError(`Cannot execute 'loopStart' on 'Transport': argument 2 (time) should be a positive number`);
     }
 
     const event = {
@@ -260,18 +277,17 @@ class Transport {
   // - drop event when it's dequeued?
   /**
    * Define the transport loop end point at a given time
-   * @param {number} time - Time to execute the command
    * @param {number} position - Position of loop end point
+   * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
    */
-  loopEnd(time, position) {
-    if (!isPositiveNumber(time)) {
-      throw new TypeError(`Cannot execute 'loopEnd' on 'Transport': argument 1 (time) should be a positive number`);
+  loopEnd(position, time = this.currentTime) {
+    if (position !== Infinity && !Number.isFinite(position)) {
+      throw new TypeError(`Cannot execute 'loopStart' on 'Transport': argument 1 (position) should be either a finite number or Infinity`);
     }
 
-    // accept Infnity
-    if (position !== Infinity && !Number.isFinite(position)) {
-      throw new TypeError(`Cannot execute 'loopStart' on 'Transport': argument 2 (position) should be either a finite number or Infinity`);
+    if (!isPositiveNumber(time)) {
+      throw new TypeError(`Cannot execute 'loopEnd' on 'Transport': argument 2 (time) should be a positive number`);
     }
 
     const event = {
@@ -289,17 +305,17 @@ class Transport {
    * Note that speed must be strictly positive.
    * _Experimental_
    *
-   * @param {number} time - Time to execute the command
-   * @param {number} value - Speed to transport time
+   * @param {number} speed - Speed of the transport, must be strictly > 0
+   * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
    */
-  speed(time, value) {
-    if (!isPositiveNumber(time)) {
-      throw new TypeError(`Cannot execute 'speed' on 'Transport': argument 1 (time) should be a positive number`);
+  speed(value, time = this.currentTime) {
+    if (!Number.isFinite(value)) {
+      throw new TypeError(`Cannot execute 'speed' on 'Transport': argument 1 (value) should be a positive number`);
     }
 
-    if (!Number.isFinite(value)) {
-      throw new TypeError(`Cannot execute 'speed' on 'Transport': argument 2 (value) should be a positive number`);
+    if (!isPositiveNumber(time)) {
+      throw new TypeError(`Cannot execute 'speed' on 'Transport': argument 2 (time) should be a positive number`);
     }
 
     const event = {
@@ -314,10 +330,10 @@ class Transport {
   /**
    * Cancel all currently scheduled event after the given time
    *
-   * @param {number} time - Time to execute the command
+   * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
    */
-  cancel(time) {
+  cancel(time = this.currentTime) {
     if (!isPositiveNumber(time)) {
       throw new TypeError(`Cannot execute 'cancel' on 'Transport': argument 1 (time) should be a positive number`);
     }
@@ -381,14 +397,6 @@ class Transport {
    */
   addEvents(eventList) {
     return eventList.map(event => this.addEvent(event));
-  }
-
-  /**
-   * Return estimated position at given time according to the transport current state.
-   * @param {number} time - Time to convert to position
-   */
-  getPositionAtTime(time) {
-    return quantize(this.#eventQueue.getPositionAtTime(time));
   }
 
   /**
@@ -492,7 +500,6 @@ class Transport {
 
   #tick(currentTime, processorTime, schedulerInfos) {
     const state = this.#eventQueue.dequeue();
-    // @todo - implemeent
     const transportEvent = new TransportEvent(state, schedulerInfos.tickLookahead);
 
     // Propagate transport event to all childrens, so that they can define their
