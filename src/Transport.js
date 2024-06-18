@@ -103,17 +103,15 @@ class Transport {
   }
 
   /**
-   * Underlying scheduler
+   * Pointer to the underlying scheduler.
    * @type {Scheduler}
    */
   get scheduler() {
     return this.#scheduler;
   }
 
-  // get currentPosition() {}
-
   /**
-   * Current time from scheduler timeline
+   * Current time from scheduler timeline, in seconds.
    * @type {number}
    */
   get currentTime() {
@@ -121,7 +119,7 @@ class Transport {
   }
 
   /**
-   * Current processor time.
+   * Current processor time, in seconds.
    * @type {number}
    */
   get processorTime() {
@@ -129,15 +127,16 @@ class Transport {
   }
 
   /**
-   * Current transport position
+   * Current transport position, in seconds.
    * @type {number}
    */
-  get position() {
+  get currentPosition() {
     this.getPositionAtTime(this.currentTime);
   }
 
   /**
    * Estimated position at given time according to the transport current state.
+   *
    * @param {number} time - Time to convert to position
    * @return {number}
    */
@@ -146,7 +145,8 @@ class Transport {
   }
 
   /**
-   * Start the transport at a given time
+   * Start the transport at a given time.
+   *
    * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
    */
@@ -164,7 +164,8 @@ class Transport {
   }
 
   /**
-   * Stop the transport at a given time, position will be reset to zero
+   * Stop the transport at a given time, position will be reset to zero.
+   *
    * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
    */
@@ -182,7 +183,8 @@ class Transport {
   }
 
   /**
-   * Pause the transport at a given time, position will remain untouched
+   * Pause the transport at a given time, position will remain untouched.
+   *
    * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
    */
@@ -200,7 +202,8 @@ class Transport {
   }
 
   /**
-   * Seek to a new position in the timeline
+   * Seek to a new position in the timeline at a given time.
+   *
    * @param {number} position - New transport position
    * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
@@ -224,7 +227,8 @@ class Transport {
   }
 
   /**
-   * Toggle the transport loop at a given time
+   * Set the transport loop state at a given time.
+   *
    * @param {boolean} value - Loop state
    * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
@@ -250,7 +254,8 @@ class Transport {
   // @todo - How to handle if loopEnd < loopStart as we can't know both avalues in advance?
   // - drop event when it's dequeued?
   /**
-   * Define the transport loop start point at a given time
+   * Set the transport loop start point at a given time.
+   *
    * @param {number} position - Position of loop start point
    * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
@@ -276,7 +281,8 @@ class Transport {
   // @todo - How to handle if loopEnd < loopStart as we can't know both avalues in advance?
   // - drop event when it's dequeued?
   /**
-   * Define the transport loop end point at a given time
+   * Set the transport loop end point at a given time.
+   *
    * @param {number} position - Position of loop end point
    * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
@@ -300,7 +306,7 @@ class Transport {
   }
 
   /**
-   * Define the transport speed at a given time
+   * Set transport speed at a given time.
    *
    * Note that speed must be strictly positive.
    * _Experimental_
@@ -328,7 +334,7 @@ class Transport {
   }
 
   /**
-   * Cancel all currently scheduled event after the given time
+   * Cancel all currently scheduled event after the given time.
    *
    * @param {number} [time=this.currentTime] - Time to execute the command
    * @return {object|null} Raw event or `null` if event discarded
@@ -364,6 +370,8 @@ class Transport {
    * const event = primary.start(getTime() + 1);
    * // `event` (as well as `primary.serialize()`) could e.g. be sent over the network
    * secondary.addEvent(event);
+   *
+   * @param {object} event - Raw event as returned by the transport control methods
    */
   addEvent(event) {
     // make sure we don't crash the transport if we try to add an event that
@@ -394,6 +402,8 @@ class Transport {
 
   /**
    * Add a list of raw events to the transport queue.
+   *
+   * @param {object[]} event - List of raw events
    */
   addEvents(eventList) {
     return eventList.map(event => this.addEvent(event));
@@ -459,7 +469,7 @@ class Transport {
   }
 
   /**
-   * Define if a given processor has been added to the transport
+   * Define if a given processor has been added to the transport.
    *
    * @param {TransportProcessor} processor - Engine to check
    * @return {boolean}
@@ -469,7 +479,7 @@ class Transport {
   }
 
   /**
-   * Remove an processor from the transport
+   * Remove a processor from the transport.
    *
    * @param {TransportProcessor} processor - Engine to remove from the transport
    * @throws Throw if the processor has not been added to the transport
@@ -529,8 +539,7 @@ class Transport {
       console.error(err);
     }
 
-    // @todo - This can fail due to back and forth conversions between time and position
-    // Check that resetTime >= currentTime
+    // @fixme - This can fail due to back and forth conversions between time and position
     // if (resetTime < currentTime) {
     //   console.warn('Handling TransportEvent cannot lead to scheduling in the past, removing faulty processor');
     //   this.#scheduler.remove(processor);

@@ -1,1 +1,1 @@
-{"version":3,"file":"TransportEventQueue.d.ts","sourceRoot":"","sources":["../src/TransportEventQueue.js"],"names":[],"mappings":"AAAA;;;GAGG;AACH;IACE,8BAmBC;IAdC;;;;;;;;MAQC;IACD,mBAAyB;IAEzB,uBAAyB;IAEzB,cAAc;IAGhB,gBAEC;IAED;;;OAGG;IACH,iBAFY,MAAO,IAAI,CAqEtB;IAED,eAqEC;IAGD,qCA4BC;IAGD,sCAWC;CACF"}
+{"version":3,"file":"TransportEventQueue.d.ts","sourceRoot":"","sources":["../src/TransportEventQueue.js"],"names":[],"mappings":"AAAA;;;GAGG;AACH;IACE,8BAmBC;IAdC;;;;;;;;MAQC;IACD,mBAAyB;IAEzB,uBAAyB;IAEzB,cAAc;IAGhB,gBAEC;IAED,qBAmEC;IAED,eAqEC;IAGD,qCA4BC;IAGD,sCAWC;CACF"}

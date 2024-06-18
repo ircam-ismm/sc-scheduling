@@ -45,53 +45,56 @@ schedule.add(currentTime => {
     *   [Parameters][2]
 *   [Scheduler][3]
     *   [Parameters][4]
-    *   [period][5]
-    *   [lookahead][6]
-    *   [currentTime][7]
-    *   [audioTime][8]
-    *   [processorTime][9]
-    *   [defer][10]
-    *   [has][11]
-    *   [add][12]
-    *   [reset][13]
-    *   [remove][14]
-    *   [clear][15]
-*   [period][16]
+    *   [Examples][5]
+    *   [period][6]
+    *   [lookahead][7]
+    *   [currentTime][8]
+    *   [audioTime][9]
+    *   [processorTime][10]
+    *   [defer][11]
+    *   [has][12]
+    *   [add][13]
+    *   [reset][14]
+    *   [remove][15]
+    *   [clear][16]
 *   [SchedulerEvent][17]
     *   [tickLookahead][18]
-*   [Transport][19]
+*   [TransportProcessor][19]
     *   [Parameters][20]
-    *   [Examples][21]
-    *   [dumpState][22]
-    *   [scheduler][23]
-    *   [currentTime][24]
-    *   [audioTime][25]
-    *   [start][26]
-    *   [stop][27]
-    *   [pause][28]
-    *   [seek][29]
-    *   [loop][30]
-    *   [loopStart][31]
-    *   [loopEnd][32]
-    *   [speed][33]
-    *   [cancel][34]
-    *   [addEvent][35]
-    *   [addEvents][36]
-    *   [getPositionAtTime][37]
-    *   [add][38]
-    *   [has][39]
-    *   [remove][40]
-    *   [clear][41]
-*   [TransportEvent][42]
-    *   [Parameters][43]
-    *   [type][44]
-    *   [time][45]
-    *   [position][46]
-    *   [speed][47]
-    *   [loop][48]
-    *   [loopStart][49]
-    *   [loopEnd][50]
-    *   [tickLookahead][51]
+*   [Transport][21]
+    *   [Parameters][22]
+    *   [Examples][23]
+    *   [serialize][24]
+    *   [scheduler][25]
+    *   [currentTime][26]
+    *   [processorTime][27]
+    *   [currentPosition][28]
+    *   [getPositionAtTime][29]
+    *   [start][30]
+    *   [stop][31]
+    *   [pause][32]
+    *   [seek][33]
+    *   [loop][34]
+    *   [loopStart][35]
+    *   [loopEnd][36]
+    *   [speed][37]
+    *   [cancel][38]
+    *   [addEvent][39]
+    *   [addEvents][40]
+    *   [add][41]
+    *   [has][42]
+    *   [remove][43]
+    *   [clear][44]
+*   [TransportEvent][45]
+    *   [Parameters][46]
+    *   [type][47]
+    *   [time][48]
+    *   [position][49]
+    *   [speed][50]
+    *   [loop][51]
+    *   [loopStart][52]
+    *   [loopEnd][53]
+    *   [tickLookahead][54]
 
 ## SchedulerProcessor
 
@@ -104,16 +107,15 @@ Note that the APIs of the `SchedulerProcessor` and of a `TransportProcessor`
 are made in such way that it is possible to implement generic processors that
 can be added both to a `Scheduler` and to a `Transport`.
 
-Type: [function][52]
+Type: [function][55]
 
 ### Parameters
 
-*   `currentTime` **[number][53]** Current time in the timeline of the scheduler
-*   `processorTime` **[number][53]** Current time in the timeline of the processor
-    if it has to trigger events in a different timeline, see
-    `Scheduler#options.currentTimeToProcessorTimeFunction`.
+*   `currentTime` **[number][56]** Current time in the timeline of the scheduler
+*   `processorTime` **[number][56]** Current time in the timeline of the processor
+    see `Scheduler#options.currentTimeToProcessorTimeFunction`.
 *   `event` **[SchedulerEvent][17]** Event that holds informations about the current
-    processor call.
+    scheduler call.
 
 ## Scheduler
 
@@ -123,13 +125,13 @@ schedule events in an arbitrary timelines.
 It aims at finding a tradeoff between time precision, real-time responsiveness
 and the weaknesses of the native timers (i.e. `setTimeout` and `setInterval`)
 
-For an in-depth explaination of the pattern, see [https://web.dev/audio-scheduling/][54]
+For an in-depth explaination of the pattern, see [https://web.dev/audio-scheduling/][57]
 
 ### Parameters
 
-*   `getTimeFunction` **[function][52]** Function that returns a time in seconds,
+*   `getTimeFunction` **[function][55]** Function that returns a time in seconds,
     defining the timeline in which the scheduler is running.
-*   `$1` **[Object][55]**  (optional, default `{}`)
+*   `$1` **[Object][58]**  (optional, default `{}`)
 
     *   `$1.period`   (optional, default `0.025`)
     *   `$1.lookahead`   (optional, default `0.1`)
@@ -138,54 +140,73 @@ For an in-depth explaination of the pattern, see [https://web.dev/audio-scheduli
     *   `$1.currentTimeToAudioTimeFunction`   (optional, default `null`)
     *   `$1.maxRecursions`   (optional, default `100`)
     *   `$1.verbose`   (optional, default `false`)
-*   `options` **[object][55]** Options of the scheduler
+*   `options` **[object][58]** Options of the scheduler
+
+### Examples
+
+```javascript
+import { Scheduler } from '@ircam/sc-scheduling';
+import { getTime } from '@ircam/sc-utils';
+
+const scheduler = new Scheduler(getTime);
+
+const processor = (currentTime, processorTime, infos) => {
+  console.log(currentTime);
+  return currentTime + 0.1; // ask to be called back every 100ms
+}
+
+// start processor in 1 second
+scheduler.add(processor, getTime() + 1);
+```
 
 ### period
 
-Minimum period at which the scheduler checks for events, in seconds.
+Period of the scheduler, in seconds.
+
+Minimum time span between the scheduler checks for events, in seconds.
 Throws if negative or greater than lookahead.
 
-Type: [number][53]
+Type: [number][56]
 
 ### lookahead
 
-Lookahead duration in seconds.
+Lookahead duration, in seconds.
 Throws if negative or lower than period.
 
-Type: [number][53]
+Type: [number][56]
 
 ### currentTime
 
-Current time in the scheduler timeline.
+Current time in the scheduler timeline, in seconds.
 
 Basically an accessor for `getTimeFunction` parameter given in constructor.
 
-Type: [number][53]
+Type: [number][56]
 
 ### audioTime
 
 \[deprecated] Scheduler current audio time according to `currentTime`
 
-Type: [number][53]
+Type: [number][56]
 
 ### processorTime
 
-Processor time according to `currentTime` and the transfert functioin
-provided in `options.currentTimeToProcessorTimeFunction`.
+Processor time, in seconds, according to `currentTime` and the transfert
+function provided in `options.currentTimeToProcessorTimeFunction`.
 
 If `options.currentTimeToProcessorTimeFunction` has not been set, is equal
 to `currentTime`.
 
-Type: [number][53]
+Type: [number][56]
 
 ### defer
 
 Execute a function once at a given time.
 
-Calling `defer` compensates with a `setTimeout` for the tick lookahead
-introduced by the scheduling. Can be usefull for example to synchronize
-audio events which natively scheduled with visuals which have no internal
-timing/scheduling ability.
+Calling `defer` compensates for the tick lookahead introduced by the scheduling
+with a `setTimeout`. Can be usefull for example to synchronize audio events
+which natively scheduled with visuals which have no internal timing/scheduling
+ability.
 
 Be aware that this method will introduce small timing error of 1-2 ms order
 of magnitude due to the `setTimeout`.
@@ -193,16 +214,16 @@ of magnitude due to the `setTimeout`.
 #### Parameters
 
 *   `deferedProcessor` **[SchedulerProcessor][1]** Callback function to schedule.
-*   `time` **[number][53]** Time at which the callback should be scheduled.
+*   `time` **[number][56]** Time at which the callback should be scheduled.
 
 #### Examples
 
 ```javascript
 const scheduler = new Scheduler(getTime);
 
-scheduler.add((currentTime, audioTime) => {
+scheduler.add((currentTime, processorTime) => {
   // schedule some audio event
-  playSomeSoundAt(audioTime);
+  playSomeSoundAt(processorTime);
   // defer execution of visual display to compensate the tickLookahead
   scheduler.defer(displaySomeSynchronizedStuff, currentTime);
   // ask the scheduler to call back in 1 second
@@ -218,7 +239,7 @@ Check whether a given processor has been added to this scheduler
 
 *   `processor` **[SchedulerProcessor][1]** Processor to test.
 
-Returns **[boolean][56]**&#x20;
+Returns **[boolean][59]**&#x20;
 
 ### add
 
@@ -233,8 +254,8 @@ This is the responsibility of the consumer code to handle such possible issues.
 #### Parameters
 
 *   `processor` **[SchedulerProcessor][1]** Processor to add to the scheduler
-*   `time` **[number][53]** Time at which the processor should be launched. (optional, default `this.currentTime`)
-*   `priority` **[Number][53]** Additional priority in case of equal time between
+*   `time` **[number][56]** Time at which the processor should be launched. (optional, default `this.currentTime`)
+*   `priority` **[Number][56]** Additional priority in case of equal time between
     two processor. Higher priority means the processor will processed first. (optional, default `0`)
 
 ### reset
@@ -255,7 +276,7 @@ work, because the reset will always be overriden by the processor return value.
 #### Parameters
 
 *   `processor` **[SchedulerProcessor][1]** The processor to reschedule
-*   `time` **[number][53]** Time at which the processor must be rescheduled (optional, default `undefined`)
+*   `time` **[number][56]** Time at which the processor must be rescheduled (optional, default `undefined`)
 
 ### remove
 
@@ -269,10 +290,6 @@ Remove a processor from the scheduler.
 
 Clear the scheduler.
 
-## period
-
-Period of the scheduler, in seconds
-
 ## SchedulerEvent
 
 Scheduler information provided as third argument of a callback registered
@@ -282,17 +299,43 @@ in the scheduler
 
 Delta time between tick time and current time, in seconds
 
-Type: [Number][53]
+Type: [Number][56]
+
+## TransportProcessor
+
+Processor to add into a [Transport][21].
+
+The processor will be called back by the Transport on each transport event to
+define its behavior according to event. Between these events, it can be called
+as a regular [SchedulerProcessor][1] to do some processing.
+
+Note that the APIs of the `SchedulerProcessor` and of a `TransportProcessor`
+are made in such way that it is possible to implement generic processors that
+can be added both to a `Scheduler` and to a `Transport`.
+
+Type: [function][55]
+
+### Parameters
+
+*   `currentPosition` **[number][56]** Current position in the timeline of the transport.
+*   `processorTime` **[number][56]** Current time in the timeline of the processor
+    see `Scheduler#options.currentTimeToProcessorTimeFunction`.
+*   `event` **([TransportEvent][45] | [SchedulerEvent][17])** Event that holds informations
+    about the current transport or scheduler call.
 
 ## Transport
 
 The Transport abstraction allows to define and manipulate a timeline.
 
+All provided Transport commands (e.g. start, stop, etc) can be scheduled in the
+underlying scheduler timeline which makes it usable in distributed and synchronized
+contexts.
+
 ### Parameters
 
 *   `scheduler` **[Scheduler][3]** Instance of scheduler into which the transport
     should run
-*   `initialState` **[object][55]** Initial state of the transport, to synchronize
+*   `initialState` **[object][58]** Initial state of the transport, to synchronize
     it from another transport state (see `Transport#dumpState()`). (optional, default `null`)
 
 ### Examples
@@ -304,7 +347,7 @@ import { getTime } from '@ircam/sc-utils';
 const scheduler = new Scheduler(getTime);
 const transport = new Transport(scheduler);
 
-const engine = (position, time, infos) => {
+const processor = (position, time, infos) => {
   if (infos instanceof TransportEvent) {
      // ask to be called back only when the transport is running
      return infos.speed > 0 ? position : Infinity;
@@ -313,141 +356,193 @@ const engine = (position, time, infos) => {
   console.log(position);
   return position + 0.1; // ask to be called back every 100ms
 }
+
+transport.add(processor);
+// start transport in 1 second
+transport.start(getTime() + 1);
 ```
 
-### dumpState
+### serialize
 
-Retrieves the current state and event queue for the transport
+Retrieves the current state and event queue for the transport as a raw object.
+
+The returned value can be used to initialize the state of another synchronized
+transport, cf. `initialValue` argument from constructor.
+
+Returns **[object][58]**&#x20;
 
 ### scheduler
 
-Underlying scheduler
+Pointer to the underlying scheduler
 
 Type: [Scheduler][3]
 
 ### currentTime
 
-Scheduler current time
+Current time from scheduler timeline, in seconds.
 
-Type: [Scheduler][3]
+Type: [number][56]
 
-### audioTime
+### processorTime
 
-Scheduler current audio time
+Current processor time, in seconds.
 
-Type: [Scheduler][3]
+Type: [number][56]
+
+### currentPosition
+
+Current transport position, in seconds.
+
+Type: [number][56]
+
+### getPositionAtTime
+
+Estimated position at given time according to the transport current state.
+
+#### Parameters
+
+*   `time` **[number][56]** Time to convert to position
+
+Returns **[number][56]**&#x20;
 
 ### start
 
-Start the transport at a given time
+Start the transport at a given time.
 
 #### Parameters
 
-*   `time` **[number][53]** Time to execute the command
+*   `time` **[number][56]** Time to execute the command (optional, default `this.currentTime`)
+
+Returns **([object][58] | null)** Raw event or `null` if event discarded
 
 ### stop
 
-Stop the transport at a given time, position will be reset to zero
+Stop the transport at a given time, position will be reset to zero.
 
 #### Parameters
 
-*   `time` **[number][53]** Time to execute the command
+*   `time` **[number][56]** Time to execute the command (optional, default `this.currentTime`)
+
+Returns **([object][58] | null)** Raw event or `null` if event discarded
 
 ### pause
 
-Pause the transport at a given time, position will remain untouched
+Pause the transport at a given time, position will remain untouched.
 
 #### Parameters
 
-*   `time` **[number][53]** Time to execute the command
+*   `time` **[number][56]** Time to execute the command (optional, default `this.currentTime`)
+
+Returns **([object][58] | null)** Raw event or `null` if event discarded
 
 ### seek
 
-Seek to a new position in the timeline
+Seek to a new position in the timeline at a given time.
 
 #### Parameters
 
-*   `time` **[number][53]** Time to execute the command
-*   `position` **[number][53]** New position
+*   `position` **[number][56]** New transport position
+*   `time` **[number][56]** Time to execute the command (optional, default `this.currentTime`)
+
+Returns **([object][58] | null)** Raw event or `null` if event discarded
 
 ### loop
 
-Toggle the transport loop at a given time
+Set the transport loop state at a given time.
 
 #### Parameters
 
-*   `time` **[number][53]** Time to execute the command
-*   `value` &#x20;
-*   `loop` **[boolean][56]** Loop state
+*   `value` **[boolean][59]** Loop state
+*   `time` **[number][56]** Time to execute the command (optional, default `this.currentTime`)
+
+Returns **([object][58] | null)** Raw event or `null` if event discarded
 
 ### loopStart
 
-Define the transport loop start point at a given time
+Set the transport loop start point at a given time.
 
 #### Parameters
 
-*   `time` **[number][53]** Time to execute the command
-*   `position` **[number][53]** Position of loop start point
+*   `position` **[number][56]** Position of loop start point
+*   `time` **[number][56]** Time to execute the command (optional, default `this.currentTime`)
+
+Returns **([object][58] | null)** Raw event or `null` if event discarded
 
 ### loopEnd
 
-Define the transport loop end point at a given time
+Set the transport loop end point at a given time.
 
 #### Parameters
 
-*   `time` **[number][53]** Time to execute the command
-*   `position` **[number][53]** Position of loop end point
+*   `position` **[number][56]** Position of loop end point
+*   `time` **[number][56]** Time to execute the command (optional, default `this.currentTime`)
+
+Returns **([object][58] | null)** Raw event or `null` if event discarded
 
 ### speed
 
-Define the transport speed at a given time
+Set transport speed at a given time.
 
+Note that speed must be strictly positive.
 *Experimental*
 
 #### Parameters
 
-*   `time` **[number][53]** Time to execute the command
-*   `value` **[number][53]** Speed to transport time
+*   `value` &#x20;
+*   `time` **[number][56]** Time to execute the command (optional, default `this.currentTime`)
+*   `speed` **[number][56]** Speed of the transport, must be strictly > 0
+
+Returns **([object][58] | null)** Raw event or `null` if event discarded
 
 ### cancel
 
-Cancel all event currently scheduled after the given time
+Cancel all currently scheduled event after the given time.
 
 #### Parameters
 
-*   `time` **[number][53]** Time to execute the command
+*   `time` **[number][56]** Time to execute the command (optional, default `this.currentTime`)
+
+Returns **([object][58] | null)** Raw event or `null` if event discarded
 
 ### addEvent
 
 Add raw event to the transport queue.
 
 Most of the time, you should use the dedicated higher level methods. However
-this is useful to control several transports from a central event producer
-(e.g. on the network)
+this is useful to control several transports from a central event producer.
+In particular this can be used to synchronize several transport on the network
+according you have access to a synchronized timeline in which the schedulers
+are running, cf. e.g. [https://github.com/ircam-ismm/sync][60])
 
 #### Parameters
 
-*   `event` &#x20;
+*   `event` **[object][58]** Raw event as returned by the transport control methods
+
+#### Examples
+
+```javascript
+const scheduler = new Scheduler(getTime);
+const primary = new Transport(scheduler);
+// create a "copy" of the primary transport
+const secondary = new Transport(scheduler, primary.serialize());
+// perform some control command and share it with the secondary transport
+const event = primary.start(getTime() + 1);
+// `event` (as well as `primary.serialize()`) could e.g. be sent over the network
+secondary.addEvent(event);
+```
 
 ### addEvents
 
-Add a list raw event to the transport queue.
+Add a list of raw events to the transport queue.
 
 #### Parameters
 
 *   `eventList` &#x20;
-
-### getPositionAtTime
-
-Return estimated position at given time according to the transport current state.
-
-#### Parameters
-
-*   `time` **[number][53]** Time to convert to position
+*   `event` **[Array][61]<[object][58]>** List of raw events
 
 ### add
 
-Add an engine to the transport.
+Add an processor to the transport.
 
 When a processor is added to the transport, it called with an 'init' event
 to allow it to respond properly to the current state of the transport.
@@ -455,37 +550,37 @@ For example, if the transport has already been started.
 
 #### Parameters
 
-*   `engine` **[function][52]** Engine to add to the transport
+*   `processor` **[TransportProcessor][19]** Engine to add to the transport
 
 <!---->
 
-*   Throws **any** Throw if the engine has already been added to this or another transport
+*   Throws **any** Throw if the processor has already been added to this or another transport
 
 ### has
 
-Define if a given engine has been added to the transport
+Define if a given processor has been added to the transport.
 
 #### Parameters
 
-*   `engine` **[function][52]** Engine to check
+*   `processor` **[TransportProcessor][19]** Engine to check
 
-Returns **[boolean][56]**&#x20;
+Returns **[boolean][59]**&#x20;
 
 ### remove
 
-Remove an engine from the transport
+Remove a processor from the transport.
 
 #### Parameters
 
-*   `engine` **[function][52]** Engine to remove from the transport
+*   `processor` **[TransportProcessor][19]** Engine to remove from the transport
 
 <!---->
 
-*   Throws **any** Throw if the engine has not been added to the transport
+*   Throws **any** Throw if the processor has not been added to the transport
 
 ### clear
 
-Remove all engines, cancel all registered transport event and pause transport
+Remove all processors, cancel all registered transport event and pause transport
 
 ## TransportEvent
 
@@ -500,49 +595,49 @@ Event emitted by the Transport when a change occurs
 
 Type of the event
 
-Type: [string][57]
+Type: [string][62]
 
 ### time
 
 Time of the event
 
-Type: [number][53]
+Type: [number][56]
 
 ### position
 
 Position of the event in timeline
 
-Type: [number][53]
+Type: [number][56]
 
 ### speed
 
 Current speed of the transport (0 is stopped or paused, 1 if started)
 
-Type: [number][53]
+Type: [number][56]
 
 ### loop
 
 Wether the transport is looping
 
-Type: [boolean][56]
+Type: [boolean][59]
 
 ### loopStart
 
 Start position of the loop
 
-Type: [number][53]
+Type: [number][56]
 
 ### loopEnd
 
 Stop position of the loop
 
-Type: [number][53]
+Type: [number][56]
 
 ### tickLookahead
 
 Delta time between tick time and event time, in seconds
 
-Type: [number][53]
+Type: [number][56]
 
 [1]: #schedulerprocessor
 
@@ -552,111 +647,121 @@ Type: [number][53]
 
 [4]: #parameters-1
 
-[5]: #period
+[5]: #examples
 
-[6]: #lookahead
+[6]: #period
 
-[7]: #currenttime
+[7]: #lookahead
 
-[8]: #audiotime
+[8]: #currenttime
 
-[9]: #processortime
+[9]: #audiotime
 
-[10]: #defer
+[10]: #processortime
 
-[11]: #has
+[11]: #defer
 
-[12]: #add
+[12]: #has
 
-[13]: #reset
+[13]: #add
 
-[14]: #remove
+[14]: #reset
 
-[15]: #clear
+[15]: #remove
 
-[16]: #period-1
+[16]: #clear
 
 [17]: #schedulerevent
 
 [18]: #ticklookahead
 
-[19]: #transport
+[19]: #transportprocessor
 
 [20]: #parameters-7
 
-[21]: #examples-1
+[21]: #transport
 
-[22]: #dumpstate
+[22]: #parameters-8
 
-[23]: #scheduler-1
+[23]: #examples-2
 
-[24]: #currenttime-1
+[24]: #serialize
 
-[25]: #audiotime-1
+[25]: #scheduler-1
 
-[26]: #start
+[26]: #currenttime-1
 
-[27]: #stop
+[27]: #processortime-1
 
-[28]: #pause
+[28]: #currentposition
 
-[29]: #seek
+[29]: #getpositionattime
 
-[30]: #loop
+[30]: #start
 
-[31]: #loopstart
+[31]: #stop
 
-[32]: #loopend
+[32]: #pause
 
-[33]: #speed
+[33]: #seek
 
-[34]: #cancel
+[34]: #loop
 
-[35]: #addevent
+[35]: #loopstart
 
-[36]: #addevents
+[36]: #loopend
 
-[37]: #getpositionattime
+[37]: #speed
 
-[38]: #add-1
+[38]: #cancel
 
-[39]: #has-1
+[39]: #addevent
 
-[40]: #remove-1
+[40]: #addevents
 
-[41]: #clear-1
+[41]: #add-1
 
-[42]: #transportevent
+[42]: #has-1
 
-[43]: #parameters-23
+[43]: #remove-1
 
-[44]: #type
+[44]: #clear-1
 
-[45]: #time
+[45]: #transportevent
 
-[46]: #position
+[46]: #parameters-24
 
-[47]: #speed-1
+[47]: #type
 
-[48]: #loop-1
+[48]: #time
 
-[49]: #loopstart-1
+[49]: #position
 
-[50]: #loopend-1
+[50]: #speed-1
 
-[51]: #ticklookahead-1
+[51]: #loop-1
 
-[52]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Statements/function
+[52]: #loopstart-1
 
-[53]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number
+[53]: #loopend-1
 
-[54]: https://web.dev/audio-scheduling/
+[54]: #ticklookahead-1
 
-[55]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object
+[55]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Statements/function
 
-[56]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean
+[56]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Number
 
-[57]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String
+[57]: https://web.dev/audio-scheduling/
+
+[58]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object
+
+[59]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Boolean
+
+[60]: https://github.com/ircam-ismm/sync
+
+[61]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Array
+
+[62]: https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String
 
 <!-- apistop -->
 

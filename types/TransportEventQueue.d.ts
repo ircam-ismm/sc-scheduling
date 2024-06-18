@@ -17,11 +17,7 @@ export default class TransportControlEventQueue {
     scheduledEvents: any[];
     speed: number;
     get next(): any;
-    /**
-     * @param {Object} event
-     * @return {Object|null} event or null if discarded
-     */
-    add(event: any): any | null;
+    add(event: any): any;
     dequeue(): any;
     getPositionAtTime(time: any): number;
     getTimeAtPosition(position: any): any;

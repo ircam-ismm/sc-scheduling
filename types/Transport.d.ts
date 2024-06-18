@@ -76,84 +76,103 @@ declare class Transport {
      */
     serialize(): object;
     /**
-     * Underlying scheduler
+     * Pointer to the underlying scheduler.
      * @type {Scheduler}
      */
     get scheduler(): Scheduler;
     /**
-     * Scheduler current time
-     * @type {Scheduler}
+     * Current time from scheduler timeline, in seconds.
+     * @type {number}
      */
-    get currentTime(): Scheduler;
+    get currentTime(): number;
     /**
-     * Scheduler current audio time
-     * @type {Scheduler}
+     * Current processor time, in seconds.
+     * @type {number}
      */
-    get processorTime(): Scheduler;
+    get processorTime(): number;
     /**
-     * Start the transport at a given time
-     * @param {number} time - Time to execute the command
+     * Current transport position, in seconds.
+     * @type {number}
+     */
+    get currentPosition(): number;
+    /**
+     * Estimated position at given time according to the transport current state.
+     *
+     * @param {number} time - Time to convert to position
+     * @return {number}
+     */
+    getPositionAtTime(time: number): number;
+    /**
+     * Start the transport at a given time.
+     *
+     * @param {number} [time=this.currentTime] - Time to execute the command
      * @return {object|null} Raw event or `null` if event discarded
      */
-    start(time: number): object | null;
+    start(time?: number): object | null;
     /**
-     * Stop the transport at a given time, position will be reset to zero
-     * @param {number} time - Time to execute the command
+     * Stop the transport at a given time, position will be reset to zero.
+     *
+     * @param {number} [time=this.currentTime] - Time to execute the command
      * @return {object|null} Raw event or `null` if event discarded
      */
-    stop(time: number): object | null;
+    stop(time?: number): object | null;
     /**
-     * Pause the transport at a given time, position will remain untouched
-     * @param {number} time - Time to execute the command
+     * Pause the transport at a given time, position will remain untouched.
+     *
+     * @param {number} [time=this.currentTime] - Time to execute the command
      * @return {object|null} Raw event or `null` if event discarded
      */
-    pause(time: number): object | null;
+    pause(time?: number): object | null;
     /**
-     * Seek to a new position in the timeline
-     * @param {number} time - Time to execute the command
-     * @param {number} position - New position
+     * Seek to a new position in the timeline at a given time.
+     *
+     * @param {number} position - New transport position
+     * @param {number} [time=this.currentTime] - Time to execute the command
      * @return {object|null} Raw event or `null` if event discarded
      */
-    seek(time: number, position: number): object | null;
+    seek(position: number, time?: number): object | null;
     /**
-     * Toggle the transport loop at a given time
-     * @param {number} time - Time to execute the command
-     * @param {boolean} loop - Loop state
+     * Set the transport loop state at a given time.
+     *
+     * @param {boolean} value - Loop state
+     * @param {number} [time=this.currentTime] - Time to execute the command
      * @return {object|null} Raw event or `null` if event discarded
      */
-    loop(time: number, value: any): object | null;
+    loop(value: boolean, time?: number): object | null;
     /**
-     * Define the transport loop start point at a given time
-     * @param {number} time - Time to execute the command
+     * Set the transport loop start point at a given time.
+     *
      * @param {number} position - Position of loop start point
+     * @param {number} [time=this.currentTime] - Time to execute the command
      * @return {object|null} Raw event or `null` if event discarded
      */
-    loopStart(time: number, position: number): object | null;
+    loopStart(position: number, time?: number): object | null;
     /**
-     * Define the transport loop end point at a given time
-     * @param {number} time - Time to execute the command
+     * Set the transport loop end point at a given time.
+     *
      * @param {number} position - Position of loop end point
+     * @param {number} [time=this.currentTime] - Time to execute the command
      * @return {object|null} Raw event or `null` if event discarded
      */
-    loopEnd(time: number, position: number): object | null;
+    loopEnd(position: number, time?: number): object | null;
     /**
-     * Define the transport speed at a given time
+     * Set transport speed at a given time.
      *
      * Note that speed must be strictly positive.
      * _Experimental_
      *
-     * @param {number} time - Time to execute the command
-     * @param {number} value - Speed to transport time
+     * @param {number} speed - Speed of the transport, must be strictly > 0
+     * @param {number} [time=this.currentTime] - Time to execute the command
      * @return {object|null} Raw event or `null` if event discarded
      */
-    speed(time: number, value: number): object | null;
+    speed(value: any, time?: number): object | null;
     /**
-     * Cancel all currently scheduled event after the given time
+     * Cancel all currently scheduled event after the given time.
      *
-     * @param {number} time - Time to execute the command
+     * @param {number} [time=this.currentTime] - Time to execute the command
      * @return {object|null} Raw event or `null` if event discarded
      */
-    cancel(time: number): object | null;
+    cancel(time?: number): object | null;
     /**
      * Add raw event to the transport queue.
      *
@@ -172,44 +191,43 @@ declare class Transport {
      * const event = primary.start(getTime() + 1);
      * // `event` (as well as `primary.serialize()`) could e.g. be sent over the network
      * secondary.addEvent(event);
+     *
+     * @param {object} event - Raw event as returned by the transport control methods
      */
-    addEvent(event: any): any;
+    addEvent(event: object): any;
     /**
      * Add a list of raw events to the transport queue.
+     *
+     * @param {object[]} event - List of raw events
      */
     addEvents(eventList: any): any;
     /**
-     * Return estimated position at given time according to the transport current state.
-     * @param {number} time - Time to convert to position
-     */
-    getPositionAtTime(time: number): number;
-    /**
-     * Add an engine to the transport.
+     * Add an processor to the transport.
      *
      * When a processor is added to the transport, it called with an 'init' event
      * to allow it to respond properly to the current state of the transport.
      * For example, if the transport has already been started.
      *
-     * @param {function} engine - Engine to add to the transport
-     * @throws Throw if the engine has already been added to this or another transport
+     * @param {TransportProcessor} processor - Engine to add to the transport
+     * @throws Throw if the processor has already been added to this or another transport
      */
-    add(engine: Function): void;
+    add(processor: TransportProcessor): void;
     /**
-     * Define if a given engine has been added to the transport
+     * Define if a given processor has been added to the transport.
      *
-     * @param {function} engine - Engine to check
+     * @param {TransportProcessor} processor - Engine to check
      * @return {boolean}
      */
-    has(engine: Function): boolean;
+    has(processor: TransportProcessor): boolean;
     /**
-     * Remove an engine from the transport
+     * Remove a processor from the transport.
      *
-     * @param {function} engine - Engine to remove from the transport
-     * @throws Throw if the engine has not been added to the transport
+     * @param {TransportProcessor} processor - Engine to remove from the transport
+     * @throws Throw if the processor has not been added to the transport
      */
-    remove(engine: Function): void;
+    remove(processor: TransportProcessor): void;
     /**
-     * Remove all engines, cancel all registered transport event and pause transport
+     * Remove all processors, cancel all registered transport event and pause transport
      */
     clear(): void;
     #private;

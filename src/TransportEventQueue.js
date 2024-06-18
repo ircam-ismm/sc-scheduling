@@ -28,10 +28,6 @@ export default class TransportControlEventQueue {
     return this.scheduledEvents[0] || null;
   }
 
-  /**
-   * @param {Object} event
-   * @return {Object|null} event or null if discarded
-   */
   add(event) {
     if (![
       'start',

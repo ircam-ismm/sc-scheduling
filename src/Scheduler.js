@@ -86,18 +86,6 @@ class Scheduler {
    *  example to map between a synchronized timeline and an AudioContext own timeline.
    * @param {number} [options.maxRecursions=100] - Number of maximum calls
    *  at same time before the processor is rejected from the scheduler
-   *
-   * @example
-   * import { scheduler } from '@ircam/sc-scheduling';
-   *
-   * const getTime = () => performance.now() / 1000;
-   * const scheduler = new Scheduler(getTime);
-   * const processor = currentTime => {
-   *   console.log(currentTime);
-   *   // ask to be called back in 1 sec
-   *   return currentTime + 1;
-   * }
-   * scheduler.add(processor);
    */
   constructor(getTimeFunction, {
     period = 0.025,
@@ -177,7 +165,7 @@ class Scheduler {
   }
 
   /**
-   * Lookahead duration in seconds.
+   * Lookahead duration, in seconds.
    * Throws if negative or lower than period.
    * @type {number}
    */
@@ -194,7 +182,7 @@ class Scheduler {
   }
 
   /**
-   * Current time in the scheduler timeline.
+   * Current time in the scheduler timeline, in seconds.
    *
    * Basically an accessor for `getTimeFunction` parameter given in constructor.
    *
@@ -221,8 +209,8 @@ class Scheduler {
   }
 
   /**
-   * Processor time according to `currentTime` and the transfert functioin
-   * provided in `options.currentTimeToProcessorTimeFunction`.
+   * Processor time, in seconds, according to `currentTime` and the transfert
+   * function provided in `options.currentTimeToProcessorTimeFunction`.
    *
    * If `options.currentTimeToProcessorTimeFunction` has not been set, is equal
    * to `currentTime`.
@@ -236,10 +224,10 @@ class Scheduler {
   /**
    * Execute a function once at a given time.
    *
-   * Calling `defer` compensates with a `setTimeout` for the tick lookahead
-   * introduced by the scheduling. Can be usefull for example to synchronize
-   * audio events which natively scheduled with visuals which have no internal
-   * timing/scheduling ability.
+   * Calling `defer` compensates for the tick lookahead introduced by the scheduling
+   * with a `setTimeout`. Can be usefull for example to synchronize audio events
+   * which natively scheduled with visuals which have no internal timing/scheduling
+   * ability.
    *
    * Be aware that this method will introduce small timing error of 1-2 ms order
    * of magnitude due to the `setTimeout`.
