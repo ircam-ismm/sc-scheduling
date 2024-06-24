@@ -14,7 +14,7 @@ export default class TransportControlEventQueue {
       position: 0,
       speed: 0,
       loop: false,
-      loopStart: -Infinity,
+      loopStart: 0,
       loopEnd: Infinity,
     };
     this.previousState = null;

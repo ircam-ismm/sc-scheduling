@@ -354,6 +354,11 @@ class Scheduler {
     }
 
     if (isNumber(time)) {
+      // reset recursion counter
+      const processorInfos = this.#processorRecursionsInfos.get(processor);
+      processorInfos.time = time;
+      processorInfos.counter = 1;
+      // move processor inside queue
       this.#queue.move(processor, time);
     } else {
       this.#remove(processor);

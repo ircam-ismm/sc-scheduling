@@ -131,7 +131,7 @@ class Transport {
    * @type {number}
    */
   get currentPosition() {
-    this.getPositionAtTime(this.currentTime);
+    return this.getPositionAtTime(this.currentTime);
   }
 
   /**
