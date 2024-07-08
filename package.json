@@ -36,7 +36,7 @@
     "api": "jsdoc-to-readme --src src/*.js",
     "build": "npx esbuild ./src/index.js --bundle --minify --format=esm --outfile=build/bundle.js",
     "doc": "npm run api",
-    "preversion": "npm run build && npm run doc && npm run api",
+    "preversion": "npm run build && npm run types && npm run api",
     "test": "mocha tests/*.spec.js",
     "test:only": "mocha",
     "types": "rm -rf types && tsc"
