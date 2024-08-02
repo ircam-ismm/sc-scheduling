@@ -78,7 +78,7 @@ class Scheduler {
    *  defining the timeline in which the scheduler is running.
    * @param {object} options - Options of the scheduler
    * @param {number} [options.period=0.02] - Period of the scheduler, in seconds
-   * @param {number} [options.period=0.05] - Lookahead of the scheduler, in seconds
+   * @param {number} [options.lookahead=0.05] - Lookahead of the scheduler, in seconds
    * @param {number} [options.queueSize=1e3] - Default size of the queue, i.e.
    *  the number of events that can be scheduled in parallel
    * @param {function} [options.currentTimeToProcessorTimeFunction=Identity] - Function

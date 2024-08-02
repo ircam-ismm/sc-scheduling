@@ -133,8 +133,8 @@ For an in-depth explaination of the pattern, see [https://web.dev/audio-scheduli
     defining the timeline in which the scheduler is running.
 *   `$1` **[Object][58]**  (optional, default `{}`)
 
-    *   `$1.period`   (optional, default `0.025`)
-    *   `$1.lookahead`   (optional, default `0.1`)
+    *   `$1.period`   (optional, default `0.02`)
+    *   `$1.lookahead`   (optional, default `0.05`)
     *   `$1.queueSize`   (optional, default `1e3`)
     *   `$1.currentTimeToProcessorTimeFunction`   (optional, default `identity`)
     *   `$1.currentTimeToAudioTimeFunction`   (optional, default `null`)
@@ -373,7 +373,7 @@ Returns **[object][58]**&#x20;
 
 ### scheduler
 
-Pointer to the underlying scheduler
+Pointer to the underlying scheduler.
 
 Type: [Scheduler][3]
 
